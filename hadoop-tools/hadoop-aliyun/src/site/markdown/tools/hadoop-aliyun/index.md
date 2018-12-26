@@ -280,12 +280,6 @@ please raise your issues with them.
     </property>
 
     <property>
-      <name>fs.oss.multipart.upload.threshold</name>
-      <value>20971520</value>
-      <description>Minimum size in bytes before we start a multipart uploads or copy.</description>
-    </property>
-
-    <property>
       <name>fs.oss.multipart.download.size</name>
       <value>102400/value>
       <description>Size in bytes in each request from ALiyun OSS.</description>

@@ -116,12 +116,6 @@ public final class Constants {
 
   public static final int MULTIPART_UPLOAD_PART_NUM_LIMIT = 10000;
 
-  // Minimum size in bytes before we start a multipart uploads or copy
-  public static final String MIN_MULTIPART_UPLOAD_THRESHOLD_KEY =
-      "fs.oss.multipart.upload.threshold";
-  public static final long MIN_MULTIPART_UPLOAD_THRESHOLD_DEFAULT =
-      20 * 1024 * 1024;
-
   public static final String MULTIPART_DOWNLOAD_SIZE_KEY =
       "fs.oss.multipart.download.size";
   public static final long MULTIPART_DOWNLOAD_SIZE_DEFAULT = 512 * 1024;
