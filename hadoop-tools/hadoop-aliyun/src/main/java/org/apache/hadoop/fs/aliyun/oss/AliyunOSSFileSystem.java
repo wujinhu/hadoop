@@ -664,7 +664,7 @@ public class AliyunOSSFileSystem extends FileSystem {
    * (the caller should make sure srcPath is a file and dstPath is valid)
    *
    * @param srcPath source path.
-   * @param srcLen source path length is it is a file.
+   * @param srcLen source path length if it is a file.
    * @param dstPath destination path.
    * @return true if file is successfully copied.
    */
