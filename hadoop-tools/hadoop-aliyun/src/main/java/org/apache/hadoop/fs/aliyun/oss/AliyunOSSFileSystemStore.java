@@ -303,6 +303,8 @@ public class AliyunOSSFileSystemStore {
       return singleCopy(srcKey, dstKey);
     } catch (Exception e) {
       //2, if failed(shallow copy not supported), then multi part copy
+      LOG.debug("Exception thrown when copy file: " + srcKey
+          + ", exception: " + e + ", use multipartCopy instead");
       return multipartCopy(srcKey, srcLen, dstKey);
     }
   }
