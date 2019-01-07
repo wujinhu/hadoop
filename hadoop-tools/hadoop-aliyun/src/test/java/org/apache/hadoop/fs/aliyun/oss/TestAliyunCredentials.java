@@ -18,6 +18,7 @@
 
 package org.apache.hadoop.fs.aliyun.oss;
 
+import com.aliyun.oss.common.auth.Credentials;
 import com.aliyun.oss.common.auth.CredentialsProvider;
 import com.aliyun.oss.common.auth.InvalidCredentialsException;
 import org.apache.hadoop.conf.Configuration;
@@ -69,7 +70,8 @@ public class TestAliyunCredentials extends AbstractFSContractTestBase {
     try {
       CredentialsProvider provider =
           AliyunOSSUtils.getCredentialsProvider(uri, conf);
-      fail("Expected a CredentialInitializationException, got " + provider);
+      Credentials credentials = provider.getCredentials();
+      fail("Expected a CredentialInitializationException, got " + credentials);
     } catch (InvalidCredentialsException expected) {
       // expected
     } catch (IOException e) {
