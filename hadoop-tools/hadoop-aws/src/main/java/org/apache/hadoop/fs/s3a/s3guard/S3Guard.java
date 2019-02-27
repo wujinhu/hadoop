@@ -28,6 +28,12 @@ import java.util.Set;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import org.apache.hadoop.cloud.core.metadata.DirListingMetadata;
+import org.apache.hadoop.cloud.core.metadata.MetadataStore;
+import org.apache.hadoop.cloud.core.metadata.NullMetadataStore;
+import org.apache.hadoop.cloud.core.metadata.PathMetadata;
+import org.apache.hadoop.cloud.core.metadata.Tristate;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,7 +46,6 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.s3a.Retries;
 import org.apache.hadoop.fs.s3a.S3AFileStatus;
 import org.apache.hadoop.fs.s3a.S3AInstrumentation;
-import org.apache.hadoop.fs.s3a.Tristate;
 import org.apache.hadoop.util.ReflectionUtils;
 
 import static org.apache.hadoop.fs.s3a.Constants.S3_METADATA_STORE_IMPL;

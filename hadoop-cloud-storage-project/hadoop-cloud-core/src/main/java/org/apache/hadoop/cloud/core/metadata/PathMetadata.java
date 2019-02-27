@@ -16,14 +16,13 @@
  * limitations under the License.
  */
 
-package org.apache.hadoop.fs.s3a.s3guard;
+package org.apache.hadoop.cloud.core.metadata;
 
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.s3a.Tristate;
 
 /**
  * {@code PathMetadata} models path metadata stored in the
@@ -89,7 +88,7 @@ public class PathMetadata extends ExpirableMetadata {
     return isEmptyDirectory;
   }
 
-  void setIsEmptyDirectory(Tristate isEmptyDirectory) {
+  public void setIsEmptyDirectory(Tristate isEmptyDirectory) {
     this.isEmptyDirectory = isEmptyDirectory;
   }
 
@@ -97,7 +96,7 @@ public class PathMetadata extends ExpirableMetadata {
     return isDeleted;
   }
 
-  void setIsDeleted(boolean isDeleted) {
+  public void setIsDeleted(boolean isDeleted) {
     this.isDeleted = isDeleted;
   }
 

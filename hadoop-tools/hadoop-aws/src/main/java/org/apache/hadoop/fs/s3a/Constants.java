@@ -515,39 +515,6 @@ public final class Constants {
   public static final int S3GUARD_DDB_BACKGROUND_SLEEP_MSEC_DEFAULT = 25;
 
   /**
-   * The default "Null" metadata store: {@value}.
-   */
-  @InterfaceStability.Unstable
-  public static final String S3GUARD_METASTORE_NULL
-      = "org.apache.hadoop.fs.s3a.s3guard.NullMetadataStore";
-
-  /**
-   * Use Local memory for the metadata: {@value}.
-   * This is not coherent across processes and must be used for testing only.
-   */
-  @InterfaceStability.Unstable
-  public static final String S3GUARD_METASTORE_LOCAL
-      = "org.apache.hadoop.fs.s3a.s3guard.LocalMetadataStore";
-
-  /**
-   * Maximum number of records in LocalMetadataStore.
-   */
-  @InterfaceStability.Unstable
-  public static final String S3GUARD_METASTORE_LOCAL_MAX_RECORDS =
-      "fs.s3a.s3guard.local.max_records";
-  public static final int DEFAULT_S3GUARD_METASTORE_LOCAL_MAX_RECORDS = 256;
-
-  /**
-   * Time to live in milliseconds in LocalMetadataStore.
-   * If zero, time-based expiration is disabled.
-   */
-  @InterfaceStability.Unstable
-  public static final String S3GUARD_METASTORE_LOCAL_ENTRY_TTL =
-      "fs.s3a.s3guard.local.ttl";
-  public static final int DEFAULT_S3GUARD_METASTORE_LOCAL_ENTRY_TTL
-      = 10 * 1000;
-
-  /**
    * Use DynamoDB for the metadata: {@value}.
    */
   @InterfaceStability.Unstable

@@ -41,9 +41,15 @@ import com.amazonaws.services.dynamodbv2.model.Tag;
 import com.google.common.collect.Lists;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.hadoop.cloud.core.metadata.AbstractMSContract;
+import org.apache.hadoop.cloud.core.metadata.DescendantsIterator;
+import org.apache.hadoop.cloud.core.metadata.DirListingMetadata;
+import org.apache.hadoop.cloud.core.metadata.MetadataStore;
+import org.apache.hadoop.cloud.core.metadata.MetadataStoreTestBase;
+import org.apache.hadoop.cloud.core.metadata.PathMetadata;
+import org.apache.hadoop.cloud.core.metadata.Tristate;
 import org.apache.hadoop.fs.contract.s3a.S3AContract;
 import org.apache.hadoop.fs.s3a.Constants;
-import org.apache.hadoop.fs.s3a.Tristate;
 
 import org.apache.hadoop.io.IOUtils;
 import org.junit.AfterClass;
@@ -246,7 +252,7 @@ public class ITestDynamoDBMetadataStore extends MetadataStoreTestBase {
   }
 
   @Override
-  FileStatus basicFileStatus(Path path, int size, boolean isDir)
+  protected FileStatus basicFileStatus(Path path, int size, boolean isDir)
       throws IOException {
     String owner = UserGroupInformation.getCurrentUser().getShortUserName();
     return isDir

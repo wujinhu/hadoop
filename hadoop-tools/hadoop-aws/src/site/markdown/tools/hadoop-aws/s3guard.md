@@ -90,7 +90,7 @@ This offers no metadata storage, and effectively disables S3Guard.
 ```xml
 <property>
     <name>fs.s3a.metadatastore.impl</name>
-    <value>org.apache.hadoop.fs.s3a.s3guard.NullMetadataStore</value>
+    <value>org.apache.hadoop.cloud.core.metadata.NullMetadataStore</value>
 </property>
 ```
 
@@ -116,13 +116,13 @@ two different reasons:
 * Authoritative directory listings (isAuthoritative bit)
     * Tells if the stored directory listing metadata is complete.
     * This is set by the FileSystem client (e.g. s3a) via the `DirListingMetadata`
-    class (`org.apache.hadoop.fs.s3a.s3guard.DirListingMetadata`).
+    class (`org.apache.hadoop.cloud.core.metadata.DirListingMetadata`).
     (The MetadataStore only knows what the FS client tells it.)
     * If set to `TRUE`, we know that the directory listing
     (`DirListingMetadata`) is full, and complete.
     * If set to `FALSE` the listing may not be complete.
     * Metadata store may persist the isAuthoritative bit on the metadata store.
-    * Currently `org.apache.hadoop.fs.s3a.s3guard.LocalMetadataStore` and
+    * Currently `org.apache.hadoop.cloud.core.metadata.LocalMetadataStore` and
     `org.apache.hadoop.fs.s3a.s3guard.DynamoDBMetadataStore` implementation
     supports authoritative bit.
 
@@ -345,7 +345,7 @@ First, we define shortcuts for the metadata store classnames:
 ```xml
 <property>
   <name>s3guard.null</name>
-  <value>org.apache.hadoop.fs.s3a.s3guard.NullMetadataStore</value>
+  <value>org.apache.hadoop.cloud.core.metadata.NullMetadataStore</value>
 </property>
 
 <property>

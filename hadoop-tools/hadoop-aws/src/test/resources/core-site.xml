@@ -54,7 +54,7 @@
   <!-- Convenience definitions. -->
   <property>
     <name>s3guard.null</name>
-    <value>org.apache.hadoop.fs.s3a.s3guard.NullMetadataStore</value>
+    <value>org.apache.hadoop.cloud.core.metadata.NullMetadataStore</value>
   </property>
 
   <property>

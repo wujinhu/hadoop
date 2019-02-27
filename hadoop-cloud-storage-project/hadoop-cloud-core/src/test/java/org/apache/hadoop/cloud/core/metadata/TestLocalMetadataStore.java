@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.hadoop.fs.s3a.s3guard;
+package org.apache.hadoop.cloud.core.metadata;
 
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
@@ -24,13 +24,13 @@ import java.util.concurrent.TimeUnit;
 import com.google.common.base.Ticker;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+
 import org.junit.Test;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.s3a.S3ATestUtils;
 
 /**
  * MetadataStore unit test for {@link LocalMetadataStore}.
@@ -190,14 +190,14 @@ public class TestLocalMetadataStore extends MetadataStoreTestBase {
 
   @Override
   protected void verifyFileStatus(FileStatus status, long size) {
-    S3ATestUtils.verifyFileStatus(status, size, REPLICATION, getModTime(),
+    MetadataTestUtils.verifyFileStatus(status, size, REPLICATION, getModTime(),
         getAccessTime(),
         BLOCK_SIZE, OWNER, GROUP, PERMISSION);
   }
 
   @Override
   protected void verifyDirStatus(FileStatus status) {
-    S3ATestUtils.verifyDirStatus(status, REPLICATION, getModTime(),
+    MetadataTestUtils.verifyDirStatus(status, REPLICATION, getModTime(),
         getAccessTime(), OWNER, GROUP, PERMISSION);
   }
 

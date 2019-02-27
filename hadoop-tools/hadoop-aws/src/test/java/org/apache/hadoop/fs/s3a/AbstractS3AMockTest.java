@@ -25,10 +25,10 @@ import com.amazonaws.services.s3.AmazonS3;
 
 import java.net.URI;
 
+import org.apache.hadoop.cloud.core.metadata.MetadataStore;
+import org.apache.hadoop.cloud.core.metadata.NullMetadataStore;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.s3a.commit.CommitConstants;
-import org.apache.hadoop.fs.s3a.s3guard.MetadataStore;
-import org.apache.hadoop.fs.s3a.s3guard.NullMetadataStore;
 
 import org.junit.After;
 import org.junit.Before;

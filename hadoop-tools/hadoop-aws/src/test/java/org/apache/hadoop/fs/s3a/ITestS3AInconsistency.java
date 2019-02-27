@@ -18,14 +18,14 @@
 
 package org.apache.hadoop.fs.s3a;
 
+import org.apache.hadoop.cloud.core.metadata.MetadataStore;
+import org.apache.hadoop.cloud.core.metadata.NullMetadataStore;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.contract.AbstractFSContract;
 import org.apache.hadoop.fs.contract.ContractTestUtils;
 import org.apache.hadoop.fs.contract.s3a.S3AContract;
-import org.apache.hadoop.fs.s3a.s3guard.MetadataStore;
-import org.apache.hadoop.fs.s3a.s3guard.NullMetadataStore;
 import org.apache.hadoop.test.LambdaTestUtils;
 import org.junit.Test;
 

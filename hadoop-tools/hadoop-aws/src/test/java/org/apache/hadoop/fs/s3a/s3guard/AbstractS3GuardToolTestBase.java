@@ -34,6 +34,8 @@ import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.hadoop.cloud.core.metadata.MetadataStore;
+import org.apache.hadoop.cloud.core.metadata.PathMetadata;
 import org.apache.hadoop.fs.s3a.S3AUtils;
 import org.apache.hadoop.util.StopWatch;
 import com.google.common.base.Preconditions;
@@ -53,11 +55,11 @@ import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.util.ExitUtil;
 import org.apache.hadoop.util.StringUtils;
 
+import static org.apache.hadoop.cloud.core.metadata.Constants.METASTORE_NULL;
 import static org.apache.hadoop.fs.s3a.Constants.METADATASTORE_AUTHORITATIVE;
 import static org.apache.hadoop.fs.s3a.Constants.S3GUARD_DDB_REGION_KEY;
 import static org.apache.hadoop.fs.s3a.Constants.S3GUARD_DDB_TABLE_CREATE_KEY;
 import static org.apache.hadoop.fs.s3a.Constants.S3GUARD_DDB_TABLE_NAME_KEY;
-import static org.apache.hadoop.fs.s3a.Constants.S3GUARD_METASTORE_NULL;
 import static org.apache.hadoop.fs.s3a.Constants.S3_METADATA_STORE_IMPL;
 import static org.apache.hadoop.fs.s3a.S3AUtils.clearBucketOption;
 import static org.apache.hadoop.fs.s3a.s3guard.S3GuardTool.E_BAD_STATE;
@@ -163,11 +165,11 @@ public abstract class AbstractS3GuardToolTestBase extends AbstractS3ATestBase {
     // Also create a "raw" fs without any MetadataStore configured
     Configuration conf = new Configuration(getConfiguration());
     clearBucketOption(conf, fs.getBucket(), S3_METADATA_STORE_IMPL);
-    conf.set(S3_METADATA_STORE_IMPL, S3GUARD_METASTORE_NULL);
+    conf.set(S3_METADATA_STORE_IMPL, METASTORE_NULL);
     URI fsUri = fs.getUri();
     S3AUtils.setBucketOption(conf,fsUri.getHost(),
         METADATASTORE_AUTHORITATIVE,
-        S3GUARD_METASTORE_NULL);
+        METASTORE_NULL);
     rawFs = (S3AFileSystem) FileSystem.newInstance(fsUri, conf);
   }
 
@@ -354,7 +356,7 @@ public abstract class AbstractS3GuardToolTestBase extends AbstractS3ATestBase {
     clearBucketOption(conf, bucket, S3_METADATA_STORE_IMPL);
     clearBucketOption(conf, bucket, S3GUARD_DDB_TABLE_NAME_KEY);
     clearBucketOption(conf, bucket, S3GUARD_DDB_TABLE_CREATE_KEY);
-    conf.set(S3_METADATA_STORE_IMPL, S3GUARD_METASTORE_NULL);
+    conf.set(S3_METADATA_STORE_IMPL, METASTORE_NULL);
 
     S3GuardTool.SetCapacity cmdR = new S3GuardTool.SetCapacity(conf);
     String[] argsR = new String[]{

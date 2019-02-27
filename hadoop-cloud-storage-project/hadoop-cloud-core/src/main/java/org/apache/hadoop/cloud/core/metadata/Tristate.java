@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -16,28 +16,17 @@
  * limitations under the License.
  */
 
-package org.apache.hadoop.fs.s3a.s3guard;
-
-import org.apache.hadoop.classification.InterfaceAudience;
-import org.apache.hadoop.classification.InterfaceStability;
+package org.apache.hadoop.cloud.core.metadata;
 
 /**
- * All the capability constants used for the
- * {@link MetadataStore} implementations.
+ * Simple enum to express {true, false, don't know}.
  */
-@InterfaceAudience.Public
-@InterfaceStability.Evolving
-public final class MetadataStoreCapabilities {
+public enum Tristate {
+  // Do not add additional values here.  Logic will assume there are exactly
+  // three possibilities.
+  TRUE, FALSE, UNKNOWN;
 
-  private MetadataStoreCapabilities(){
+  public static Tristate fromBool(boolean v) {
+    return v ? TRUE : FALSE;
   }
-
-  /**
-   *  This capability tells if the metadata store supports authoritative
-   *  directories. Used in {@link MetadataStore#getDiagnostics()} as a key
-   *  for this capability. The value can be boolean true or false.
-   *  If the Map.get() returns null for this key, that is interpreted as false.
-   */
-  public static final String PERSISTS_AUTHORITATIVE_BIT =
-      "persist.authoritative.bit";
 }

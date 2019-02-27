@@ -18,10 +18,10 @@
 
 package org.apache.hadoop.fs.s3a.scale;
 
+import org.apache.hadoop.cloud.core.metadata.MetadataStore;
+import org.apache.hadoop.cloud.core.metadata.PathMetadata;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.s3a.S3AFileStatus;
-import org.apache.hadoop.fs.s3a.s3guard.MetadataStore;
-import org.apache.hadoop.fs.s3a.s3guard.PathMetadata;
 
 import org.junit.FixMethodOrder;
 import org.junit.Test;

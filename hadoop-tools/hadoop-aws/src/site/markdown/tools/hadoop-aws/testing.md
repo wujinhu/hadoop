@@ -1162,7 +1162,7 @@ There is an in-memory Metadata Store for testing.
 ```xml
 <property>
   <name>fs.s3a.metadatastore.impl</name>
-  <value>org.apache.hadoop.fs.s3a.s3guard.LocalMetadataStore</value>
+  <value>org.apache.hadoop.cloud.core.metadata.LocalMetadataStore</value>
 </property>
 ```
 

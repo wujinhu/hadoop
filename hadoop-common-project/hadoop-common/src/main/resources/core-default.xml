@@ -1513,7 +1513,7 @@
 
 <property>
     <name>fs.s3a.metadatastore.impl</name>
-    <value>org.apache.hadoop.fs.s3a.s3guard.NullMetadataStore</value>
+    <value>org.apache.hadoop.cloud.core.metadata.NullMetadataStore</value>
     <description>
         Fully-qualified name of the class that implements the MetadataStore
         to be used by s3a.  The default class, NullMetadataStore, has no

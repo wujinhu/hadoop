@@ -18,8 +18,8 @@
 
 package org.apache.hadoop.fs.s3a.scale;
 
-import org.apache.hadoop.fs.s3a.s3guard.LocalMetadataStore;
-import org.apache.hadoop.fs.s3a.s3guard.MetadataStore;
+import org.apache.hadoop.cloud.core.metadata.MetadataStore;
+import org.apache.hadoop.cloud.core.metadata.LocalMetadataStore;
 
 import java.io.IOException;
 

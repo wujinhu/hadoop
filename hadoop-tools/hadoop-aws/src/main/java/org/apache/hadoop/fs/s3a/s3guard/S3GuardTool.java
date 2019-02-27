@@ -40,6 +40,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.hadoop.cloud.core.metadata.DirListingMetadata;
+import org.apache.hadoop.cloud.core.metadata.LocalMetadataStore;
+import org.apache.hadoop.cloud.core.metadata.MetadataStore;
+import org.apache.hadoop.cloud.core.metadata.MetadataUtils;
+import org.apache.hadoop.cloud.core.metadata.NullMetadataStore;
+import org.apache.hadoop.cloud.core.metadata.PathMetadata;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileStatus;
@@ -61,6 +67,7 @@ import org.apache.hadoop.util.GenericOptionsParser;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 
+import static org.apache.hadoop.cloud.core.metadata.Constants.METASTORE_NULL;
 import static org.apache.hadoop.fs.s3a.Constants.*;
 import static org.apache.hadoop.fs.s3a.Invoker.LOG_EVENT;
 import static org.apache.hadoop.service.launcher.LauncherExitCodes.*;
@@ -343,13 +350,13 @@ public abstract class S3GuardTool extends Configured implements Tool {
     String bucket = uri.getHost();
     S3AUtils.setBucketOption(conf,
         bucket,
-        S3_METADATA_STORE_IMPL, S3GUARD_METASTORE_NULL);
+        S3_METADATA_STORE_IMPL, METASTORE_NULL);
     String updatedBucketOption = S3AUtils.getBucketOption(conf, bucket,
         S3_METADATA_STORE_IMPL);
     LOG.debug("updated bucket store option {}", updatedBucketOption);
-    Preconditions.checkState(S3GUARD_METASTORE_NULL.equals(updatedBucketOption),
+    Preconditions.checkState(METASTORE_NULL.equals(updatedBucketOption),
         "Expected bucket option to be %s but was %s",
-        S3GUARD_METASTORE_NULL, updatedBucketOption);
+        METASTORE_NULL, updatedBucketOption);
 
     FileSystem fs = FileSystem.newInstance(uri, conf);
     if (!(fs instanceof S3AFileSystem)) {
@@ -1064,7 +1071,7 @@ public abstract class S3GuardTool extends Configured implements Tool {
       String keyPrefix = "/";
       if(paths.size() > 0) {
         Path path = new Path(paths.get(0));
-        keyPrefix = PathMetadataDynamoDBTranslation.pathToParentKey(path);
+        keyPrefix = MetadataUtils.pathToParentKey(path);
       }
 
       try {
@@ -1134,7 +1141,7 @@ public abstract class S3GuardTool extends Configured implements Tool {
       // config to avoid side effects like creating the table if not exists
       if (commands.getOpt(UNGUARDED_FLAG)) {
         LOG.debug("Unguarded flag is passed to command :" + this.getName());
-        getConf().set(S3_METADATA_STORE_IMPL, S3GUARD_METASTORE_NULL);
+        getConf().set(S3_METADATA_STORE_IMPL, METASTORE_NULL);
       }
 
       S3AFileSystem fs = (S3AFileSystem) FileSystem.newInstance(

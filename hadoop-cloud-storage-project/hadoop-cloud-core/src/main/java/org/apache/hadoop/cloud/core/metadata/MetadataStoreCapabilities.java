@@ -1,4 +1,4 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -16,24 +16,28 @@
  * limitations under the License.
  */
 
-package org.apache.hadoop.fs.s3a.s3guard;
+package org.apache.hadoop.cloud.core.metadata;
+
+import org.apache.hadoop.classification.InterfaceAudience;
+import org.apache.hadoop.classification.InterfaceStability;
 
 /**
- * Expirable Metadata abstract class is for storing the field needed for
- * metadata classes in S3Guard that could be expired with TTL.
+ * All the capability constants used for the
+ * {@link MetadataStore} implementations.
  */
-public abstract class ExpirableMetadata {
-  private long lastUpdated = 0;
+@InterfaceAudience.Public
+@InterfaceStability.Evolving
+public final class MetadataStoreCapabilities {
 
-  public long getLastUpdated() {
-    return lastUpdated;
+  private MetadataStoreCapabilities(){
   }
 
-  public void setLastUpdated(long lastUpdated) {
-    this.lastUpdated = lastUpdated;
-  }
-
-  public boolean isExpired(long ttl, long now) {
-    return (lastUpdated + ttl) <= now;
-  }
+  /**
+   *  This capability tells if the metadata store supports authoritative
+   *  directories. Used in {@link MetadataStore#getDiagnostics()} as a key
+   *  for this capability. The value can be boolean true or false.
+   *  If the Map.get() returns null for this key, that is interpreted as false.
+   */
+  public static final String PERSISTS_AUTHORITATIVE_BIT =
+      "persist.authoritative.bit";
 }

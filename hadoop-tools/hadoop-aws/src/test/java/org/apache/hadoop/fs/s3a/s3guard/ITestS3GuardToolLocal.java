@@ -29,6 +29,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Callable;
 
+import org.apache.hadoop.cloud.core.metadata.DirListingMetadata;
+import org.apache.hadoop.cloud.core.metadata.LocalMetadataStore;
+import org.apache.hadoop.cloud.core.metadata.MetadataStore;
 import org.apache.hadoop.test.LambdaTestUtils;
 import org.apache.hadoop.util.StringUtils;
 

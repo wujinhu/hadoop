@@ -16,18 +16,24 @@
  * limitations under the License.
  */
 
-package org.apache.hadoop.fs.s3a.s3guard;
-
-import org.apache.hadoop.fs.FileSystem;
-
-import java.io.IOException;
+package org.apache.hadoop.cloud.core.metadata;
 
 /**
- * Test specification for MetadataStore contract tests. Supplies configuration
- * and MetadataStore instance.
+ * Expirable Metadata abstract class is for storing the field needed for
+ * metadata classes in S3Guard that could be expired with TTL.
  */
-public abstract class AbstractMSContract {
+public abstract class ExpirableMetadata {
+  private long lastUpdated = 0;
 
-  public abstract FileSystem getFileSystem() throws IOException;
-  public abstract MetadataStore getMetadataStore() throws IOException;
+  public long getLastUpdated() {
+    return lastUpdated;
+  }
+
+  public void setLastUpdated(long lastUpdated) {
+    this.lastUpdated = lastUpdated;
+  }
+
+  public boolean isExpired(long ttl, long now) {
+    return (lastUpdated + ttl) <= now;
+  }
 }

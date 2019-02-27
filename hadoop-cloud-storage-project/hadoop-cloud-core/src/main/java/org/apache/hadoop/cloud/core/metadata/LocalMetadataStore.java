@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.hadoop.fs.s3a.s3guard;
+package org.apache.hadoop.cloud.core.metadata;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -28,7 +28,6 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.s3a.Tristate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,8 +38,6 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-
-import static org.apache.hadoop.fs.s3a.Constants.*;
 
 /**
  * This is a local, in-memory implementation of MetadataStore.
@@ -85,13 +82,13 @@ public class LocalMetadataStore implements MetadataStore {
   @Override
   public void initialize(Configuration conf) throws IOException {
     Preconditions.checkNotNull(conf);
-    int maxRecords = conf.getInt(S3GUARD_METASTORE_LOCAL_MAX_RECORDS,
-        DEFAULT_S3GUARD_METASTORE_LOCAL_MAX_RECORDS);
+    int maxRecords = conf.getInt(Constants.METASTORE_LOCAL_MAX_RECORDS,
+        Constants.DEFAULT_METASTORE_LOCAL_MAX_RECORDS);
     if (maxRecords < 4) {
       maxRecords = 4;
     }
-    int ttl = conf.getInt(S3GUARD_METASTORE_LOCAL_ENTRY_TTL,
-        DEFAULT_S3GUARD_METASTORE_LOCAL_ENTRY_TTL);
+    int ttl = conf.getInt(Constants.METASTORE_LOCAL_ENTRY_TTL_MS,
+        Constants.DEFAULT_METASTORE_LOCAL_ENTRY_TTL_MS);
 
     CacheBuilder builder = CacheBuilder.newBuilder().maximumSize(maxRecords);
     if (ttl >= 0) {
@@ -384,7 +381,7 @@ public class LocalMetadataStore implements MetadataStore {
       // if there's a bucket, (well defined host in Uri) the pathToParentKey
       // can be used to get the path from the status
       statusTranslatedPath =
-          PathMetadataDynamoDBTranslation.pathToParentKey(status.getPath());
+          MetadataUtils.pathToParentKey(status.getPath());
     } else {
       // if there's no bucket in the path the pathToParentKey will fail, so
       // this is the fallback to get the path from status

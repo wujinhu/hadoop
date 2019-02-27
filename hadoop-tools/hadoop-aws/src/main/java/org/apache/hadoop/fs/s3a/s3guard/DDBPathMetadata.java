@@ -18,8 +18,9 @@
 
 package org.apache.hadoop.fs.s3a.s3guard;
 
+import org.apache.hadoop.cloud.core.metadata.PathMetadata;
+import org.apache.hadoop.cloud.core.metadata.Tristate;
 import org.apache.hadoop.fs.FileStatus;
-import org.apache.hadoop.fs.s3a.Tristate;
 
 /**
  * {@code DDBPathMetadata} wraps {@link PathMetadata} and adds the

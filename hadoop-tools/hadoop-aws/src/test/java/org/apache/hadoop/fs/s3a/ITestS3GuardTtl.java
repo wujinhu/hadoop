@@ -18,16 +18,15 @@
 
 package org.apache.hadoop.fs.s3a;
 
+import org.apache.hadoop.cloud.core.metadata.DirListingMetadata;
+import org.apache.hadoop.cloud.core.metadata.MetadataStore;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.s3a.s3guard.DirListingMetadata;
-import org.apache.hadoop.fs.s3a.s3guard.MetadataStore;
 import org.apache.hadoop.fs.s3a.s3guard.S3Guard;
 import org.junit.Assume;
 import org.junit.Test;
 
 import static org.apache.hadoop.fs.contract.ContractTestUtils.touch;
-import static org.apache.hadoop.fs.s3a.Constants.METADATASTORE_AUTHORITATIVE;
 import static org.apache.hadoop.fs.s3a.S3ATestUtils.isMetadataStoreAuthoritative;
 import static org.apache.hadoop.fs.s3a.S3ATestUtils.metadataStorePersistsAuthoritativeBit;
 import static org.mockito.Mockito.mock;

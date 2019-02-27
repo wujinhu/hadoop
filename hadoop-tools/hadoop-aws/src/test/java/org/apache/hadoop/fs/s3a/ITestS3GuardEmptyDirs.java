@@ -18,9 +18,10 @@
 
 package org.apache.hadoop.fs.s3a;
 
+import org.apache.hadoop.cloud.core.metadata.MetadataStore;
+import org.apache.hadoop.cloud.core.metadata.NullMetadataStore;
+import org.apache.hadoop.cloud.core.metadata.Tristate;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.s3a.s3guard.MetadataStore;
-import org.apache.hadoop.fs.s3a.s3guard.NullMetadataStore;
 import org.junit.Assume;
 import org.junit.Test;
 

@@ -36,6 +36,7 @@ import org.junit.Assert;
 import org.junit.Assume;
 import org.junit.Test;
 
+import org.apache.hadoop.cloud.core.metadata.MetadataStore;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.s3a.Constants;
 import org.apache.hadoop.fs.s3a.S3AFileSystem;

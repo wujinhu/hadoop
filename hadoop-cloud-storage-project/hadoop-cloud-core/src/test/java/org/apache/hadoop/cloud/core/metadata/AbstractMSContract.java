@@ -16,17 +16,18 @@
  * limitations under the License.
  */
 
-package org.apache.hadoop.fs.s3a;
+package org.apache.hadoop.cloud.core.metadata;
+
+import org.apache.hadoop.fs.FileSystem;
+
+import java.io.IOException;
 
 /**
- * Simple enum to express {true, false, don't know}.
+ * Test specification for MetadataStore contract tests. Supplies configuration
+ * and MetadataStore instance.
  */
-public enum Tristate {
-  // Do not add additional values here.  Logic will assume there are exactly
-  // three possibilities.
-  TRUE, FALSE, UNKNOWN;
+public abstract class AbstractMSContract {
 
-  public static Tristate fromBool(boolean v) {
-    return v ? TRUE : FALSE;
-  }
+  public abstract FileSystem getFileSystem() throws IOException;
+  public abstract MetadataStore getMetadataStore() throws IOException;
 }

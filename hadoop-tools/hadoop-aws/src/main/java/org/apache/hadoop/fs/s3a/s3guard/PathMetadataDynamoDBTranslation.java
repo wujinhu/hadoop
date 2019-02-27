@@ -19,7 +19,6 @@
 package org.apache.hadoop.fs.s3a.s3guard;
 
 import java.io.IOException;
-import java.net.URI;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
@@ -37,13 +36,14 @@ import com.amazonaws.services.dynamodbv2.model.ScalarAttributeType;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
+import org.apache.hadoop.cloud.core.metadata.MetadataUtils;
+import org.apache.hadoop.cloud.core.metadata.PathMetadata;
+import org.apache.hadoop.cloud.core.metadata.Tristate;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.s3a.Constants;
-import org.apache.hadoop.fs.s3a.Tristate;
 
 /**
  * Defines methods for translating between domain model objects and their
@@ -271,28 +271,7 @@ final class PathMetadataDynamoDBTranslation {
    * @return DynamoDB equality condition on {@code path} as parent
    */
   static KeyAttribute pathToParentKeyAttribute(Path path) {
-    return new KeyAttribute(PARENT, pathToParentKey(path));
-  }
-
-  /**
-   * e.g. {@code pathToParentKey(s3a://bucket/path/a) -> /bucket/path/a}
-   * @param path path to convert
-   * @return string for parent key
-   */
-  static String pathToParentKey(Path path) {
-    Preconditions.checkNotNull(path);
-    Preconditions.checkArgument(path.isUriPathAbsolute(), "Path not absolute");
-    URI uri = path.toUri();
-    String bucket = uri.getHost();
-    Preconditions.checkArgument(!StringUtils.isEmpty(bucket),
-        "Path missing bucket");
-    String pKey = "/" + bucket + uri.getPath();
-
-    // Strip trailing slash
-    if (pKey.endsWith("/")) {
-      pKey = pKey.substring(0, pKey.length() - 1);
-    }
-    return pKey;
+    return new KeyAttribute(PARENT, MetadataUtils.pathToParentKey(path));
   }
 
   /**
@@ -305,8 +284,8 @@ final class PathMetadataDynamoDBTranslation {
   static PrimaryKey pathToKey(Path path) {
     Preconditions.checkArgument(!path.isRoot(),
         "Root path is not mapped to any PrimaryKey");
-    return new PrimaryKey(PARENT, pathToParentKey(path.getParent()), CHILD,
-        path.getName());
+    return new PrimaryKey(PARENT, MetadataUtils.pathToParentKey(
+        path.getParent()), CHILD, path.getName());
   }
 
   /**

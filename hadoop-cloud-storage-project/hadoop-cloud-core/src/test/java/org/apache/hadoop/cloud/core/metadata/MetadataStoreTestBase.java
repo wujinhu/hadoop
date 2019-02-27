@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.hadoop.fs.s3a.s3guard;
+package org.apache.hadoop.cloud.core.metadata;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -38,13 +38,8 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.fs.permission.FsPermission;
-import org.apache.hadoop.fs.s3a.S3ATestUtils;
-import org.apache.hadoop.fs.s3a.Tristate;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.test.HadoopTestBase;
-
-import static org.apache.hadoop.fs.s3a.S3ATestUtils.isMetadataStoreAuthoritative;
-import static org.apache.hadoop.fs.s3a.S3ATestUtils.metadataStorePersistsAuthoritativeBit;
 
 /**
  * Main test class for MetadataStore implementations.
@@ -59,11 +54,11 @@ public abstract class MetadataStoreTestBase extends HadoopTestBase {
       LoggerFactory.getLogger(MetadataStoreTestBase.class);
 
   /** Some dummy values for sanity-checking FileStatus contents. */
-  static final long BLOCK_SIZE = 32 * 1024 * 1024;
-  static final int REPLICATION = 1;
-  static final FsPermission PERMISSION = new FsPermission((short)0755);
-  static final String OWNER = "bob";
-  static final String GROUP = "uncles";
+  public static final long BLOCK_SIZE = 32 * 1024 * 1024;
+  public static final int REPLICATION = 1;
+  public static final FsPermission PERMISSION = new FsPermission((short)0755);
+  public static final String OWNER = "bob";
+  public static final String GROUP = "uncles";
   private final long accessTime = System.currentTimeMillis();
   private final long modTime = accessTime - 5000;
 
@@ -513,13 +508,11 @@ public abstract class MetadataStoreTestBase extends HadoopTestBase {
     }
   }
 
-
-
   @Test
   public void testListChildrenAuthoritative() throws IOException {
     Assume.assumeTrue("MetadataStore should be capable for authoritative "
         + "storage of directories to run this test.",
-        metadataStorePersistsAuthoritativeBit(ms));
+        MetadataTestUtils.metadataStorePersistsAuthoritativeBit(ms));
 
     setupListStatus();
 
@@ -932,7 +925,7 @@ public abstract class MetadataStoreTestBase extends HadoopTestBase {
   /**
    * Convenience to create a fully qualified Path from string.
    */
-  Path strToPath(String p) throws IOException {
+  protected Path strToPath(String p) throws IOException {
     final Path path = new Path(p);
     assert path.isAbsolute();
     return path.makeQualified(contract.getFileSystem().getUri(), null);
@@ -948,8 +941,8 @@ public abstract class MetadataStoreTestBase extends HadoopTestBase {
     }
   }
 
-  FileStatus basicFileStatus(Path path, int size, boolean isDir) throws
-      IOException {
+  protected FileStatus basicFileStatus(Path path, int size, boolean isDir)
+      throws IOException {
     return basicFileStatus(path, size, isDir, modTime, accessTime);
   }
 
@@ -970,8 +963,8 @@ public abstract class MetadataStoreTestBase extends HadoopTestBase {
         newModTime, newAccessTime);
   }
 
-  void verifyFileStatus(FileStatus status, long size) {
-    S3ATestUtils.verifyFileStatus(status, size, BLOCK_SIZE, modTime);
+  protected void verifyFileStatus(FileStatus status, long size) {
+    MetadataTestUtils.verifyFileStatus(status, size, BLOCK_SIZE, modTime);
   }
 
   private FileStatus makeDirStatus(String pathStr) throws IOException {
@@ -981,16 +974,16 @@ public abstract class MetadataStoreTestBase extends HadoopTestBase {
   /**
    * Verify the directory file status. Subclass may verify additional fields.
    */
-  void verifyDirStatus(FileStatus status) {
+  protected void verifyDirStatus(FileStatus status) {
     assertTrue("Is a dir", status.isDirectory());
     assertEquals("zero length", 0, status.getLen());
   }
 
-  long getModTime() {
+  protected long getModTime() {
     return modTime;
   }
 
-  long getAccessTime() {
+  protected long getAccessTime() {
     return accessTime;
   }
 

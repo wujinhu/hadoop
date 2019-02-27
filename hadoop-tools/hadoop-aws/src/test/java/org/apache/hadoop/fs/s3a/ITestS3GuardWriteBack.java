@@ -18,12 +18,12 @@
 
 package org.apache.hadoop.fs.s3a;
 
+import org.apache.hadoop.cloud.core.metadata.DirListingMetadata;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.contract.ContractTestUtils;
-import org.apache.hadoop.fs.s3a.s3guard.DirListingMetadata;
 import org.junit.Assume;
 import org.junit.Test;
 
@@ -31,6 +31,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.Arrays;
 
+import static org.apache.hadoop.cloud.core.metadata.Constants.METASTORE_NULL;
 import static org.apache.hadoop.fs.s3a.Constants.*;
 
 /**
@@ -123,11 +124,11 @@ public class ITestS3GuardWriteBack extends AbstractS3ATestBase {
     String host = fsURI.getHost();
     String metastore;
 
-    metastore = S3GUARD_METASTORE_NULL;
+    metastore = METASTORE_NULL;
     if (!disableS3Guard) {
       // pick up the metadata store used by the main test
       metastore = getFileSystem().getConf().get(S3_METADATA_STORE_IMPL);
-      assertNotEquals(S3GUARD_METASTORE_NULL, metastore);
+      assertNotEquals(METASTORE_NULL, metastore);
     }
 
     conf.set(Constants.S3_METADATA_STORE_IMPL, metastore);
