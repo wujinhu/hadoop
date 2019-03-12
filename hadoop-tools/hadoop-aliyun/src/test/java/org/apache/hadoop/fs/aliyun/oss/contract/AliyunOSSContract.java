@@ -19,7 +19,6 @@
 package org.apache.hadoop.fs.aliyun.oss.contract;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.aliyun.oss.AliyunOSSTestUtils;
 import org.apache.hadoop.fs.contract.AbstractBondedFSContract;
@@ -45,8 +44,9 @@ public class AliyunOSSContract extends AbstractBondedFSContract {
   }
 
   @Override
-  public FileSystem getTestFileSystem() throws IOException {
-    return AliyunOSSTestUtils.createTestFileSystem(new Configuration());
+  public void init() throws IOException {
+    AliyunOSSTestUtils.initMetaFileSystemIfNeeded(getConf());
+    super.init();
   }
 
   @Override

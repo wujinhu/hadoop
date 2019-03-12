@@ -24,6 +24,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.aliyun.oss.guard.OSSGuard;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -61,11 +62,14 @@ public class AliyunOSSBlockOutputStream extends OutputStream {
   private final ListeningExecutorService executorService;
   private OutputStream blockStream;
   private final byte[] singleByte = new byte[1];
+  private long fileLength = 0L;
+  private OSSGuard ossGuard;
 
   public AliyunOSSBlockOutputStream(Configuration conf,
       AliyunOSSFileSystemStore store,
       String key,
       Long blockSize,
+      OSSGuard ossGuard,
       ExecutorService executorService) throws IOException {
     this.store = store;
     this.conf = conf;
@@ -76,6 +80,7 @@ public class AliyunOSSBlockOutputStream extends OutputStream {
         new BufferedOutputStream(new FileOutputStream(blockFile));
     this.partETagsFutures = new ArrayList<>(2);
     this.executorService = MoreExecutors.listeningDecorator(executorService);
+    this.ossGuard = ossGuard;
   }
 
   private File newBlockFile() throws IOException {
@@ -126,6 +131,7 @@ public class AliyunOSSBlockOutputStream extends OutputStream {
     } finally {
       removePartFiles();
       closed = true;
+      ossGuard.putPath(key, fileLength, false);
     }
   }
 
@@ -143,6 +149,7 @@ public class AliyunOSSBlockOutputStream extends OutputStream {
     }
     blockStream.write(b, off, len);
     blockWritten += len;
+    fileLength += len;
     if (blockWritten >= blockSize) {
       uploadCurrentPart();
       blockWritten = 0L;

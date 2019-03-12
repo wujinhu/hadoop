@@ -53,6 +53,7 @@ public class TestAliyunOSSFileSystemStore {
   @Before
   public void setUp() throws Exception {
     conf = new Configuration();
+    AliyunOSSTestUtils.initMetaFileSystemIfNeeded(conf);
     fs = new AliyunOSSFileSystem();
     fs.initialize(URI.create(conf.get("test.fs.oss.name")), conf);
     store = fs.getStore();

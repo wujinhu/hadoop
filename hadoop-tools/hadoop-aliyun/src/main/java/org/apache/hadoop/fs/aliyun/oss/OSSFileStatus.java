@@ -20,6 +20,7 @@ package org.apache.hadoop.fs.aliyun.oss;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
+import org.apache.hadoop.cloud.core.metadata.Tristate;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
 
@@ -29,10 +30,36 @@ import org.apache.hadoop.fs.Path;
 @InterfaceAudience.Private
 @InterfaceStability.Evolving
 public class OSSFileStatus extends FileStatus {
+  private Tristate emptyDirectory;
+
   public OSSFileStatus(long length, boolean isdir, int blockReplication,
       long blocksize, long modTime, Path path, String user) {
     super(length, isdir, blockReplication, blocksize, modTime, path);
     setOwner(user);
     setGroup(user);
+  }
+
+  /**
+   * Convenience constructor for creating from a vanilla FileStatus plus
+   * an isEmptyDirectory flag.
+   * @param source FileStatus to convert to OSSFileStatus
+   * @param isEmptyDirectory TRUE/FALSE if known to be / not be an empty
+   *     directory, UNKNOWN if that information was not computed.
+   * @return a new OSSFileStatus
+   */
+  public static OSSFileStatus fromFileStatus(FileStatus source,
+      Tristate isEmptyDirectory) {
+    OSSFileStatus ossFileStatus = new OSSFileStatus(source.getLen(),
+        source.isDirectory(), source.getReplication(),
+        source.getBlockSize(), source.getModificationTime(),
+        source.getPath(), source.getOwner());
+    if (source.isDirectory()) {
+      ossFileStatus.emptyDirectory = isEmptyDirectory;
+    }
+    return ossFileStatus;
+  }
+
+  public Tristate isEmptyDirectory() {
+    return emptyDirectory;
   }
 }

@@ -21,6 +21,10 @@ package org.apache.hadoop.fs.aliyun.oss;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileContext;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.aliyun.oss.guard.HadoopMetadataStore;
+import org.apache.hadoop.hdfs.MiniDFSCluster;
+import org.apache.hadoop.hdfs.MiniDFSCluster.Builder;
 import org.junit.internal.AssumptionViolatedException;
 
 import java.io.IOException;
@@ -30,6 +34,8 @@ import java.net.URI;
  * Utility class for Aliyun OSS Tests.
  */
 public final class AliyunOSSTestUtils {
+
+  private static MiniDFSCluster miniDFSCluster;
 
   private AliyunOSSTestUtils() {
   }
@@ -46,6 +52,7 @@ public final class AliyunOSSTestUtils {
    */
   public static AliyunOSSFileSystem createTestFileSystem(Configuration conf)
       throws IOException {
+    initMetaFileSystemIfNeeded(conf);
     AliyunOSSFileSystem ossfs = new AliyunOSSFileSystem();
     ossfs.initialize(getURI(conf), conf);
     return ossfs;
@@ -53,6 +60,7 @@ public final class AliyunOSSTestUtils {
 
   public static FileContext createTestFileContext(Configuration conf) throws
       IOException {
+    initMetaFileSystemIfNeeded(conf);
     return FileContext.getFileContext(getURI(conf), conf);
   }
 
@@ -82,5 +90,22 @@ public final class AliyunOSSTestUtils {
     String testUniqueForkId = System.getProperty("test.unique.fork.id");
     return testUniqueForkId == null ? "/test" :
         "/" + testUniqueForkId + "/test";
+  }
+
+  public static void initMetaFileSystemIfNeeded(Configuration conf)
+      throws IOException {
+    if (!conf.get(Constants.OSS_METADATA_STORE_IMPL)
+        .equals(HadoopMetadataStore.class.getName())) {
+      return;
+    }
+
+    if (miniDFSCluster == null) {
+      Builder builder = new Builder(conf).numDataNodes(3);
+      miniDFSCluster = builder.build();
+      miniDFSCluster.waitActive();
+    }
+
+    conf.set(FileSystem.FS_DEFAULT_NAME_KEY,
+        miniDFSCluster.getFileSystem().getUri().toString());
   }
 }

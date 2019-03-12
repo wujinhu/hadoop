@@ -19,6 +19,7 @@
 package org.apache.hadoop.fs.aliyun.oss;
 
 import com.aliyun.oss.common.utils.VersionInfoUtils;
+import org.apache.hadoop.classification.InterfaceStability;
 
 /**
  * ALL configuration constants for OSS filesystem.
@@ -154,4 +155,78 @@ public final class Constants {
   public static final String UPLOAD_ACTIVE_BLOCKS_KEY =
       "fs.oss.upload.active.blocks";
   public static final int UPLOAD_ACTIVE_BLOCKS_DEFAULT = 4;
+
+  /**
+   * Metadata store related configurations.
+   */
+  @InterfaceStability.Unstable
+  public static final String OSS_METADATA_STORE_IMPL =
+      "fs.oss.metadatastore.impl";
+
+  // Whether or not to allow MetadataStore to be source of truth.
+  @InterfaceStability.Unstable
+  public static final String METADATASTORE_AUTHORITATIVE =
+      "fs.oss.metadatastore.authoritative";
+
+  /**
+   * Metadata store path when OSS_METADATA_STORE_IMPL
+   * is {@link org.apache.hadoop.fs.aliyun.oss.guard.HadoopMetadataStore}
+   */
+  public static final String OSS_METASTORE_METADATA_PATH =
+      "fs.oss.metadatastore.path";
+
+  public static final boolean METADATASTORE_AUTHORITATIVE_DEFAULT = false;
+
+  public static final String METADATASTORE_PERSISTS_AUTHORITATIVE_BIT =
+      "fs.oss.metadatastore.persist.authoritative.bit";
+
+  // The maximum queue number for hadoop metadata store ops
+  // New metadata ops will be blocked when queue is full
+  public static final String MAX_METADATASTORE_OPS_TASKS_KEY =
+      "fs.oss.metadatastore.hadoop.max.tasks";
+  public static final int MAX_METADATASTORE_OPS_TASKS_DEFAULT = 1024 * 1024;
+
+  // The maximum number of threads allowed for hadoop metadata store
+  public static final String MAX_METADATASTORE_OPS_THREADS_NUM_KEY =
+      "fs.oss.metadatastore.hadoop.max.threads";
+  public static final int MAX_METADATASTORE_OPS_THREADS_DEFAULT = 20;
+
+  public static final String METADATASTORE_ACTIVE_OPS_KEY =
+      "fs.oss.metadatastore.hadoop.active.ops";
+  public static final int METADATASTORE_ACTIVE_OPS_DEFAULT = 10;
+
+  // Use a custom OTS endpoint
+  public static final String OTS_ENDPOINT_KEY = "fs.ots.endpoint";
+
+  // OTS instance used
+  public static final String OTS_INSTANCE_KEY = "fs.ots.instance";
+
+  // OTS table used
+  public static final String OTS_TABLE_KEY = "fs.ots.table";
+
+  public static final String OTS_TABLE_AUTO_CREATE_KEY =
+      "fs.oss.metadatastore.ots.table.auto.create";
+  public static final boolean OTS_TABLE_AUTO_CREATE_DEFAULT = true;
+
+  public static final String OTS_TABLE_CAPACITY_READ_KEY =
+      "fs.oss.metadatastore.ots.table.capacity.read";
+
+  public static final int OTS_TABLE_CAPACITY_READ_DEFAULT = 0;
+
+  public static final String OTS_TABLE_CAPACITY_WRITE_KEY =
+      "fs.oss.metadatastore.ots.table.capacity.write";
+  public static final int OTS_TABLE_CAPACITY_WRITE_DEFAULT = 0;
+
+  // Number of times we should retry errors
+  public static final String OTS_TABLE_OPS_RETRIES_KEY =
+      "fs.oss.metadatastore.ots.table.attempts.maximum";
+
+  public static final int OTS_TABLE_OPS_RETRIES_DEFAULT = 3;
+
+  // Delay pause we retry errors, in millis
+  public static final long OTS_TABLE_OPS_RETRIES_DELAY_MS = 500;
+
+  public static final String OTS_TABLE_BATCH_WRITE_REQUEST_LIMIT_KEY =
+      "fs.oss.metadatastore.ots.table.batch.write.limit";
+  public static final int OTS_TABLE_BATCH_WRITE_REQUEST_LIMIT_DEFAULT = 200;
 }

@@ -99,7 +99,7 @@ public abstract class MetadataStoreTestBase extends HadoopTestBase {
   /** The MetadataStore contract used to test against. */
   private AbstractMSContract contract;
 
-  private MetadataStore ms;
+  protected MetadataStore ms;
 
   /**
    * @return reference to the test contract.
@@ -952,13 +952,13 @@ public abstract class MetadataStoreTestBase extends HadoopTestBase {
         newAccessTime, PERMISSION, OWNER, GROUP, path);
   }
 
-  private FileStatus makeFileStatus(String pathStr, int size) throws
+  protected FileStatus makeFileStatus(String pathStr, int size) throws
       IOException {
     return makeFileStatus(pathStr, size, modTime, accessTime);
   }
 
-  private FileStatus makeFileStatus(String pathStr, int size, long newModTime,
-      long newAccessTime) throws IOException {
+  protected FileStatus makeFileStatus(String pathStr, int size,
+      long newModTime, long newAccessTime) throws IOException {
     return basicFileStatus(strToPath(pathStr), size, false,
         newModTime, newAccessTime);
   }
@@ -967,7 +967,7 @@ public abstract class MetadataStoreTestBase extends HadoopTestBase {
     MetadataTestUtils.verifyFileStatus(status, size, BLOCK_SIZE, modTime);
   }
 
-  private FileStatus makeDirStatus(String pathStr) throws IOException {
+  protected FileStatus makeDirStatus(String pathStr) throws IOException {
     return basicFileStatus(strToPath(pathStr), 0, true, modTime, accessTime);
   }
 

@@ -25,8 +25,12 @@ import java.net.URI;
 import com.aliyun.oss.common.auth.CredentialsProvider;
 import com.google.common.base.Preconditions;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.hadoop.cloud.core.metadata.Tristate;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocalDirAllocator;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.security.ProviderUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -197,7 +201,7 @@ final public class AliyunOSSUtils {
    * @return the value
    * @throws IllegalArgumentException if the value is below the minimum
    */
-  static int intOption(Configuration conf, String key, int defVal, int min) {
+  public static int intOption(Configuration conf, String key, int defVal, int min) {
     int v = conf.getInt(key, defVal);
     Preconditions.checkArgument(v >= min,
         String.format("Value of %s: %d is below the minimum value %d",
@@ -248,5 +252,36 @@ final public class AliyunOSSUtils {
       partSize = Integer.MAX_VALUE;
     }
     return partSize;
+  }
+
+  /**
+   * Turn a path (relative or otherwise) into an OSS key.
+   *
+   * @param path the path of the file.
+   * @return the key of the object that represents the file.
+   */
+  public static String pathToKey(Path path, FileSystem fs) {
+    if (!path.isAbsolute()) {
+      path = new Path(fs.getWorkingDirectory(), path);
+    }
+
+    return path.toUri().getPath().substring(1);
+  }
+
+  public static Path keyToPath(String key) {
+    return new Path("/" + key);
+  }
+
+  public static OSSFileStatus createFileStatus(Path keyPath, boolean isDir,
+      long size, long modified, long blockSize, String owner,
+      Tristate isEmptyDirectory) {
+    if (isDir) {
+      return OSSFileStatus.fromFileStatus(
+          new FileStatus(0, true, 1, 0, modified, 0, null,
+              owner, owner, keyPath), isEmptyDirectory);
+    } else {
+      return new OSSFileStatus(size, false, 1, blockSize, modified,
+          keyPath, owner);
+    }
   }
 }

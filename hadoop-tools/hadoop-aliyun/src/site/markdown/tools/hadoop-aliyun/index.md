@@ -16,6 +16,10 @@
 
 <!-- MACRO{toc|fromDepth=0|toDepth=5} -->
 
+See also:
+
+* [OSSGuard](./ossguard.html)
+
 ## Overview
 
 The `hadoop-aliyun` module provides support for Aliyun integration with

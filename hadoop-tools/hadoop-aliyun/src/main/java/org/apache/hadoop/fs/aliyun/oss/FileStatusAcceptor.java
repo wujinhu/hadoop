@@ -39,6 +39,16 @@ public interface FileStatusAcceptor {
   boolean accept(Path keyPath, OSSObjectSummary summary);
 
   /**
+   * Predicate to decide whether or not to accept a key entry.
+   * @param keyPath qualified path to the entry
+   * @param key object key
+   * @param size object size
+   * @return true if the entry is accepted (i.e. that a status entry
+   * should be generated.
+   */
+  boolean accept(Path keyPath, String key, long size);
+
+  /**
    * Predicate to decide whether or not to accept a prefix.
    * @param keyPath qualified path to the entry
    * @param commonPrefix the prefix
@@ -68,6 +78,20 @@ public interface FileStatusAcceptor {
     public boolean accept(Path keyPath, OSSObjectSummary summary) {
       return !keyPath.equals(qualifiedPath)
         && !objectRepresentsDirectory(summary.getKey(), summary.getSize());
+    }
+
+    /**
+     * Predicate to decide whether or not to accept a key entry.
+     * @param keyPath qualified path to the entry
+     * @param key object key
+     * @param size object size
+     * @return true if the entry is accepted (i.e. that a status entry
+     * should be generated.
+     */
+    @Override
+    public boolean accept(Path keyPath, String key, long size) {
+      return !keyPath.equals(qualifiedPath)
+          && !objectRepresentsDirectory(key, size);
     }
 
     /**
@@ -107,6 +131,19 @@ public interface FileStatusAcceptor {
      */
     @Override
     public boolean accept(Path keyPath, OSSObjectSummary summary) {
+      return !keyPath.equals(qualifiedPath);
+    }
+
+    /**
+     * Predicate to decide whether or not to accept a key entry.
+     * @param keyPath qualified path to the entry
+     * @param key object key
+     * @param size object size
+     * @return true if the entry is accepted (i.e. that a status entry
+     * should be generated.
+     */
+    @Override
+    public boolean accept(Path keyPath, String key, long size) {
       return !keyPath.equals(qualifiedPath);
     }
 

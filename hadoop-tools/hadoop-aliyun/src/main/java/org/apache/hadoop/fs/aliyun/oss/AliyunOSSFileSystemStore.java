@@ -47,6 +47,10 @@ import com.aliyun.oss.model.UploadPartRequest;
 import com.aliyun.oss.model.UploadPartResult;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.hadoop.cloud.core.metadata.DirListingMetadata;
+import org.apache.hadoop.cloud.core.metadata.MetadataStore;
+import org.apache.hadoop.cloud.core.metadata.PathMetadata;
+import org.apache.hadoop.cloud.core.metadata.Tristate;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.FileStatus;
@@ -55,6 +59,7 @@ import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.PathFilter;
 import org.apache.hadoop.fs.RemoteIterator;
+import org.apache.hadoop.fs.aliyun.oss.guard.OSSGuard;
 import org.apache.hadoop.util.VersionInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -62,15 +67,19 @@ import org.slf4j.LoggerFactory;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Serializable;
+
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Map;
 import java.util.NoSuchElementException;
 
 import static org.apache.hadoop.fs.aliyun.oss.Constants.*;
@@ -90,6 +99,7 @@ public class AliyunOSSFileSystemStore {
   private long uploadPartSize;
   private int maxKeys;
   private String serverSideEncryptionAlgorithm;
+  private CredentialsProvider credentialsProvider;
 
   public void initialize(URI uri, Configuration conf, String user,
                          FileSystem.Statistics stat) throws IOException {
@@ -150,9 +160,9 @@ public class AliyunOSSFileSystemStore {
       throw new IllegalArgumentException("Aliyun OSS endpoint should not be " +
           "null or empty. Please set proper endpoint with 'fs.oss.endpoint'.");
     }
-    CredentialsProvider provider =
+    credentialsProvider =
         AliyunOSSUtils.getCredentialsProvider(uri, conf);
-    ossClient = new OSSClient(endPoint, provider, clientConf);
+    ossClient = new OSSClient(endPoint, credentialsProvider, clientConf);
     uploadPartSize = AliyunOSSUtils.getMultipartSizeProperty(conf,
         MULTIPART_UPLOAD_PART_SIZE_KEY, MULTIPART_UPLOAD_PART_SIZE_DEFAULT);
 
@@ -170,6 +180,14 @@ public class AliyunOSSFileSystemStore {
     }
 
     maxKeys = conf.getInt(MAX_PAGING_KEYS_KEY, MAX_PAGING_KEYS_DEFAULT);
+  }
+
+  public OSSClient getOSSClient() {
+    return ossClient;
+  }
+
+  public CredentialsProvider getCredentialsProvider() {
+    return credentialsProvider;
   }
 
   /**
@@ -439,6 +457,28 @@ public class AliyunOSSFileSystemStore {
     return listing;
   }
 
+  public Tristate isEmptyDirectory(Path path, String key) throws IOException {
+    ObjectListing listing = listObjects(key, 5, null, false);
+    int children = listing.getObjectSummaries().size()
+        + listing.getCommonPrefixes().size();
+    if (children == 0) {
+      throw new FileNotFoundException(path + ": No such file or directory!");
+    }
+
+    if (children > 1) {
+      return Tristate.FALSE;
+    } else {
+      List<OSSObjectSummary> objects = listing.getObjectSummaries();
+      if (listing.getCommonPrefixes().contains(key)) {
+        return Tristate.TRUE;
+      } else if (objects.size() == 1 && objects.get(0).getKey().equals(key)) {
+        return Tristate.TRUE;
+      } else {
+        return Tristate.FALSE;
+      }
+    }
+  }
+
   /**
    * Retrieve a part of an object.
    *
@@ -519,17 +559,24 @@ public class AliyunOSSFileSystemStore {
   }
 
   public RemoteIterator<LocatedFileStatus> createLocatedFileStatusIterator(
-      final String prefix, final int maxListingLength, FileSystem fs,
+      boolean authoritativeMeta, OSSGuard ossGuard,
+      String prefix, int maxListingLength, FileSystem fs,
       PathFilter filter, FileStatusAcceptor acceptor, String delimiter) {
     return new RemoteIterator<LocatedFileStatus>() {
       private String nextMarker = null;
       private boolean firstListing = true;
       private boolean meetEnd = false;
       private ListIterator<FileStatus> batchIterator;
+      private DirListingMetadata dirMeta;
+      private Map<Path, FileStatus> totalStats = new HashMap<>();
+      private Path qualified;
 
       @Override
       public boolean hasNext() throws IOException {
         if (firstListing) {
+          String key = AliyunOSSUtils.maybeAddTrailingSlash(prefix);
+          qualified = fs.makeQualified(AliyunOSSUtils.keyToPath(key));
+          dirMeta = listMetadataStore();
           requestNextBatch();
           firstListing = false;
         }
@@ -549,35 +596,155 @@ public class AliyunOSSFileSystemStore {
         }
       }
 
-      private boolean requestNextBatch() {
+      private void addAncestorsIfNeeded(Map<Path, DirListingMetadata> dirsToPut,
+          FileStatus status) {
+        Path path = status.getPath();
+        while (path != null) {
+          if (status.isDirectory() && !dirsToPut.containsKey(path)) {
+            DirListingMetadata dm = new DirListingMetadata(path,
+                Collections.<PathMetadata>emptyList(), true);
+            dirsToPut.put(path, dm);
+          }
+
+          Path parent = path.getParent();
+          if (parent != null) {
+            if (!dirsToPut.containsKey(parent)) {
+              DirListingMetadata dm = new DirListingMetadata(parent,
+                  Collections.<PathMetadata>emptyList(), true);
+              dirsToPut.put(parent, dm);
+            }
+
+            dirsToPut.get(parent).put(status);
+          }
+          path = path.getParent();
+          if (totalStats.containsKey(path)) {
+            status = totalStats.get(parent);
+          } else {
+            status = AliyunOSSUtils.createFileStatus(parent, true, 0,
+                System.currentTimeMillis(), 0,
+                username, Tristate.UNKNOWN);
+          }
+        }
+      }
+
+      private boolean requestNextBatch() throws IOException {
         if (meetEnd) {
+          if (qualified.isRoot() && delimiter != null) {
+            // when we listChildren(root) non-recursive from ms,
+            // dm is always not authoritative because root path
+            // is not persisted in metadata store, so we do not update
+            // ms this case
+            return false;
+          }
+
+          if (!qualified.isRoot() && delimiter != null) {
+            ossGuard.dirListingUnion(qualified, totalStats.values(),
+                dirMeta, authoritativeMeta);
+          } else {
+            // recursive
+            Map<Path, DirListingMetadata> dirsToPut = new HashMap<>();
+            for (FileStatus status : totalStats.values()) {
+              addAncestorsIfNeeded(dirsToPut, status);
+            }
+
+            List<Path> paths = new ArrayList<>(dirsToPut.keySet());
+            Collections.sort(paths);
+            for (Path path : paths) {
+              ossGuard.getMetadataStore().put(dirsToPut.get(path));
+            }
+          }
           return false;
         }
+
+        List<FileStatus> stats = new ArrayList<>();
+
+        listObjectStore(stats);
+        return batchIterator.hasNext();
+      }
+
+      private DirListingMetadata listMetadataStore() throws IOException {
+        MetadataStore ms = ossGuard.getMetadataStore();
+        DirListingMetadata dm = ms.listChildren(qualified);
+        if (authoritativeMeta && dm != null && dm.isAuthoritative()) {
+          List<FileStatus> stats = new ArrayList<>();
+          List<PathMetadata> pms = new ArrayList<>(dm.getListing());
+          while (!pms.isEmpty()) {
+            PathMetadata pm = pms.remove(0);
+            if (pm.isDeleted()) {
+              continue;
+            }
+
+            FileStatus status = pm.getFileStatus();
+            Path keyPath = status.getPath();
+            String key = AliyunOSSUtils.pathToKey(keyPath, fs);
+            if (status.isDirectory() && !keyPath.toString().endsWith("/")) {
+              key = key + "/";
+            }
+            if (filter.accept(keyPath)
+                && acceptor.accept(keyPath, key, status.getLen())) {
+              stats.add(status);
+            }
+
+            if (status.isDirectory() && delimiter == null) {
+              DirListingMetadata cdm = ms.listChildren(status.getPath());
+              if (cdm != null && cdm.isAuthoritative()) {
+                for (PathMetadata child : cdm.getListing()) {
+                  if (child.isDeleted()) {
+                    continue;
+                  }
+                  pms.add(child);
+                }
+              } else {
+                // We found an un-authoritative sub dir, we will stop this
+                // process and clear `stats` and fall back to invoke
+                // listObjectStore(for simplify), we will optimize later
+                stats.clear();
+                return null;
+              }
+            }
+          }
+          batchIterator = stats.listIterator();
+          meetEnd = true;
+        }
+        return dm;
+      }
+
+      private void addToTotalStatIfNeeded(FileStatus status) {
+        Path dPath = status.getPath();
+        if (dPath.equals(qualified)) {
+          return;
+        }
+
+        totalStats.put(status.getPath(), status);
+      }
+
+      private void listObjectStore(List<FileStatus> stats) {
         ListObjectsRequest listRequest = new ListObjectsRequest(bucketName);
         listRequest.setPrefix(AliyunOSSUtils.maybeAddTrailingSlash(prefix));
         listRequest.setMaxKeys(maxListingLength);
         listRequest.setMarker(nextMarker);
         listRequest.setDelimiter(delimiter);
         ObjectListing listing = ossClient.listObjects(listRequest);
-        List<FileStatus> stats = new ArrayList<>(
-            listing.getObjectSummaries().size() +
-            listing.getCommonPrefixes().size());
         for (OSSObjectSummary summary : listing.getObjectSummaries()) {
           String key = summary.getKey();
           Path path = fs.makeQualified(new Path("/" + key));
+          FileStatus status = new OSSFileStatus(summary.getSize(),
+              key.endsWith("/"), 1, fs.getDefaultBlockSize(path),
+              summary.getLastModified().getTime(), path, username);
+          addToTotalStatIfNeeded(status);
           if (filter.accept(path) && acceptor.accept(path, summary)) {
-            FileStatus status = new OSSFileStatus(summary.getSize(),
-                key.endsWith("/"), 1, fs.getDefaultBlockSize(path),
-                summary.getLastModified().getTime(), path, username);
             stats.add(status);
           }
         }
 
         for (String commonPrefix : listing.getCommonPrefixes()) {
           Path path = fs.makeQualified(new Path("/" + commonPrefix));
+          ObjectMetadata metadata = getObjectMetadata(commonPrefix);
+          FileStatus status = new OSSFileStatus(0, true, 1, 0,
+              metadata == null ? 0L : metadata.getLastModified().getTime(),
+              path, username);
+          addToTotalStatIfNeeded(status);
           if (filter.accept(path) && acceptor.accept(path, commonPrefix)) {
-            FileStatus status = new OSSFileStatus(0, true, 1, 0, 0,
-                path, username);
             stats.add(status);
           }
         }
@@ -589,7 +756,6 @@ public class AliyunOSSFileSystemStore {
           meetEnd = true;
         }
         statistics.incrementReadOps(1);
-        return batchIterator.hasNext();
       }
     };
   }

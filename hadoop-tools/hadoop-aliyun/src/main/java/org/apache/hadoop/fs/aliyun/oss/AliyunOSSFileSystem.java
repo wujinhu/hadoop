@@ -22,15 +22,20 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.hadoop.cloud.core.metadata.MetadataStore;
+import org.apache.hadoop.cloud.core.metadata.NullMetadataStore;
+import org.apache.hadoop.cloud.core.metadata.Tristate;
+import org.apache.hadoop.cloud.core.metadata.PathMetadata;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.CreateFlag;
@@ -44,20 +49,21 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.PathFilter;
 import org.apache.hadoop.fs.PathIOException;
 import org.apache.hadoop.fs.RemoteIterator;
+import org.apache.hadoop.fs.aliyun.oss.guard.OSSGuard;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.util.BlockingThreadPoolExecutorService;
 import org.apache.hadoop.util.Progressable;
 
-import com.aliyun.oss.model.OSSObjectSummary;
-import com.aliyun.oss.model.ObjectListing;
 import com.aliyun.oss.model.ObjectMetadata;
 
 import org.apache.hadoop.util.SemaphoredDelegatingExecutor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static org.apache.hadoop.fs.aliyun.oss.AliyunOSSUtils.createFileStatus;
 import static org.apache.hadoop.fs.aliyun.oss.AliyunOSSUtils.intOption;
+import static org.apache.hadoop.fs.aliyun.oss.AliyunOSSUtils.keyToPath;
 import static org.apache.hadoop.fs.aliyun.oss.AliyunOSSUtils.longOption;
 import static org.apache.hadoop.fs.aliyun.oss.AliyunOSSUtils.objectRepresentsDirectory;
 import static org.apache.hadoop.fs.aliyun.oss.Constants.*;
@@ -80,6 +86,10 @@ public class AliyunOSSFileSystem extends FileSystem {
   private int maxConcurrentCopyTasksPerDir;
   private ListeningExecutorService boundedThreadPool;
   private ListeningExecutorService boundedCopyThreadPool;
+
+  private MetadataStore metadataStore;
+  private boolean authoritativeMeta;
+  private OSSGuard ossGuard;
 
   private static final PathFilter DEFAULT_FILTER = new PathFilter() {
     @Override
@@ -132,11 +142,13 @@ public class AliyunOSSFileSystem extends FileSystem {
 
     long uploadPartSize = AliyunOSSUtils.getMultipartSizeProperty(getConf(),
         MULTIPART_UPLOAD_PART_SIZE_KEY, MULTIPART_UPLOAD_PART_SIZE_DEFAULT);
+
     return new FSDataOutputStream(
         new AliyunOSSBlockOutputStream(getConf(),
             store,
             key,
             uploadPartSize,
+            ossGuard,
             new SemaphoredDelegatingExecutor(boundedThreadPool,
                 blockOutputActiveBlocks, true)), statistics);
   }
@@ -168,7 +180,7 @@ public class AliyunOSSFileSystem extends FileSystem {
   @Override
   public boolean delete(Path path, boolean recursive) throws IOException {
     try {
-      return innerDelete(getFileStatus(path), recursive);
+      return innerDelete(getFileStatus(path, true), recursive);
     } catch (FileNotFoundException e) {
       LOG.debug("Couldn't delete {} - does not exist", path);
       return false;
@@ -185,36 +197,41 @@ public class AliyunOSSFileSystem extends FileSystem {
    * @return  true if delete is successful else false.
    * @throws IOException due to inability to delete a directory or file.
    */
-  private boolean innerDelete(FileStatus status, boolean recursive)
+  private boolean innerDelete(OSSFileStatus status, boolean recursive)
       throws IOException {
     Path f = status.getPath();
-    String p = f.toUri().getPath();
-    FileStatus[] statuses;
-    // indicating root directory "/".
-    if (p.equals("/")) {
-      statuses = listStatus(status.getPath());
-      boolean isEmptyDir = statuses.length <= 0;
-      return rejectRootDirectoryDelete(isEmptyDir, recursive);
-    }
 
     String key = pathToKey(f);
     if (status.isDirectory()) {
-      if (!recursive) {
-        // Check whether it is an empty directory or not
-        statuses = listStatus(status.getPath());
-        if (statuses.length > 0) {
-          throw new IOException("Cannot remove directory " + f +
-              ": It is not empty!");
-        } else {
-          // Delete empty directory without '-r'
-          key = AliyunOSSUtils.maybeAddTrailingSlash(key);
-          store.deleteObject(key);
-        }
+      Preconditions.checkArgument(
+          status.isEmptyDirectory() != Tristate.UNKNOWN,
+          "File status must have directory emptiness computed");
+
+      if (!key.endsWith("/")) {
+        key = key + "/";
+      }
+
+      if (key.equals("/")) {
+        return rejectRootDirectoryDelete(
+            status.isEmptyDirectory() == Tristate.TRUE, recursive);
+      }
+
+      if (!recursive && status.isEmptyDirectory() == Tristate.FALSE) {
+        throw new IOException("Cannot remove directory " + f +
+            ": It is not empty!");
+      }
+      if (status.isEmptyDirectory() == Tristate.TRUE) {
+        // Delete empty directory without '-r'
+        key = AliyunOSSUtils.maybeAddTrailingSlash(key);
+        store.deleteObject(key);
+        metadataStore.delete(f);
       } else {
         store.deleteDirs(key);
+        metadataStore.deleteSubtree(f);
       }
     } else {
       store.deleteObject(key);
+      metadataStore.delete(f);
     }
 
     createFakeDirectoryIfNecessary(f);
@@ -256,14 +273,47 @@ public class AliyunOSSFileSystem extends FileSystem {
 
   @Override
   public FileStatus getFileStatus(Path path) throws IOException {
+    return getFileStatus(path, false);
+  }
+
+  public OSSFileStatus getFileStatus(Path path, boolean needEmptyDirectoryFlag)
+      throws IOException {
     Path qualifiedPath = path.makeQualified(uri, workingDir);
     String key = pathToKey(qualifiedPath);
 
-    // Root always exists
-    if (key.length() == 0) {
-      return new OSSFileStatus(0, true, 1, 0, 0, qualifiedPath, username);
+    OSSFileStatus status;
+    PathMetadata pm = metadataStore.get(qualifiedPath, needEmptyDirectoryFlag);
+    if (pm != null && authoritativeMeta && !pm.isDeleted()) {
+      if (pm.getFileStatus().isDirectory()) {
+        if (pm.isEmptyDirectory() != Tristate.UNKNOWN
+            || !needEmptyDirectoryFlag) {
+          return OSSFileStatus.fromFileStatus(pm.getFileStatus(),
+              pm.isEmptyDirectory());
+        } else {
+          LOG.debug(
+              "MetadataStore doesn't know if dir {} is empty, using OSS.", qualifiedPath);
+        }
+      } else {
+        // Either this is not a directory, or we don't care if it is empty
+        return OSSFileStatus.fromFileStatus(pm.getFileStatus(),
+            pm.isEmptyDirectory());
+      }
     }
 
+    Tristate isEmptyDirectory;
+    // Root always exists
+    if (key.length() == 0) {
+      if (needEmptyDirectoryFlag) {
+        isEmptyDirectory = store.isEmptyDirectory(path, key);
+      } else {
+        isEmptyDirectory = Tristate.UNKNOWN;
+      }
+      return createFileStatus(qualifiedPath, true,0, 0, 0,
+          username, isEmptyDirectory);
+    }
+
+    // there was no entry in OSSGuard
+    // retrieve the data and update the metadata store in the process.
     ObjectMetadata meta = store.getObjectMetadata(key);
     // If key not found and key does not end with "/"
     if (meta == null && !key.endsWith("/")) {
@@ -271,22 +321,28 @@ public class AliyunOSSFileSystem extends FileSystem {
       key += "/";
       meta = store.getObjectMetadata(key);
     }
+
     if (meta == null) {
-      ObjectListing listing = store.listObjects(key, 1, null, false);
-      if (CollectionUtils.isNotEmpty(listing.getObjectSummaries()) ||
-          CollectionUtils.isNotEmpty(listing.getCommonPrefixes())) {
-        return new OSSFileStatus(0, true, 1, 0, 0, qualifiedPath, username);
-      } else {
-        throw new FileNotFoundException(path + ": No such file or directory!");
-      }
+      isEmptyDirectory = store.isEmptyDirectory(path, key);
+      status = createFileStatus(qualifiedPath, true, 0, 0, 0, username,
+          isEmptyDirectory);
     } else if (objectRepresentsDirectory(key, meta.getContentLength())) {
-      return new OSSFileStatus(0, true, 1, 0, meta.getLastModified().getTime(),
-          qualifiedPath, username);
+      if (needEmptyDirectoryFlag) {
+        isEmptyDirectory = store.isEmptyDirectory(path, key);
+      } else {
+        isEmptyDirectory = Tristate.UNKNOWN;
+      }
+      status = createFileStatus(qualifiedPath, true, 0,
+          meta.getLastModified().getTime(), 0, username, isEmptyDirectory);
     } else {
-      return new OSSFileStatus(meta.getContentLength(), false, 1,
-          getDefaultBlockSize(path), meta.getLastModified().getTime(),
-          qualifiedPath, username);
+      isEmptyDirectory = Tristate.UNKNOWN;
+      status = createFileStatus(qualifiedPath, false, meta.getContentLength(),
+          meta.getLastModified().getTime(), getDefaultBlockSize(path),
+          username, isEmptyDirectory);
     }
+
+    metadataStore.put(new PathMetadata(status, status.isEmptyDirectory()));
+    return status;
   }
 
   @Override
@@ -376,24 +432,22 @@ public class AliyunOSSFileSystem extends FileSystem {
         TimeUnit.SECONDS, "oss-copy-unbounded");
 
     setConf(conf);
-  }
 
-/**
-   * Turn a path (relative or otherwise) into an OSS key.
-   *
-   * @param path the path of the file.
-   * @return the key of the object that represents the file.
-   */
-  private String pathToKey(Path path) {
-    if (!path.isAbsolute()) {
-      path = new Path(workingDir, path);
+    this.metadataStore = OSSGuard.getMetadataStore(this);
+    this.authoritativeMeta = conf.getBoolean(METADATASTORE_AUTHORITATIVE,
+        METADATASTORE_AUTHORITATIVE_DEFAULT);
+    if (this.metadataStore instanceof NullMetadataStore) {
+      this.authoritativeMeta = false;
+      LOG.debug("Using metadata store {}, set {} to false",
+          metadataStore, METADATASTORE_AUTHORITATIVE);
     }
-
-    return path.toUri().getPath().substring(1);
+    LOG.info("Using metadata store {}, authoritative = {}",
+        metadataStore.getClass().getName(), authoritativeMeta);
+    this.ossGuard = newOSSGuard();
   }
 
-  private Path keyToPath(String key) {
-    return new Path("/" + key);
+  private String pathToKey(Path path) {
+    return AliyunOSSUtils.pathToKey(path, this);
   }
 
   @Override
@@ -411,51 +465,13 @@ public class AliyunOSSFileSystem extends FileSystem {
         LOG.debug("listStatus: doing listObjects for directory " + key);
       }
 
-      ObjectListing objects = store.listObjects(key, maxKeys, null, false);
-      while (true) {
-        for (OSSObjectSummary objectSummary : objects.getObjectSummaries()) {
-          String objKey = objectSummary.getKey();
-          if (objKey.equals(key + "/")) {
-            if (LOG.isDebugEnabled()) {
-              LOG.debug("Ignoring: " + objKey);
-            }
-            continue;
-          } else {
-            Path keyPath = keyToPath(objectSummary.getKey())
-                .makeQualified(uri, workingDir);
-            if (LOG.isDebugEnabled()) {
-              LOG.debug("Adding: fi: " + keyPath);
-            }
-            result.add(new OSSFileStatus(objectSummary.getSize(), false, 1,
-                getDefaultBlockSize(keyPath),
-                objectSummary.getLastModified().getTime(), keyPath, username));
-          }
-        }
-
-        for (String prefix : objects.getCommonPrefixes()) {
-          if (prefix.equals(key + "/")) {
-            if (LOG.isDebugEnabled()) {
-              LOG.debug("Ignoring: " + prefix);
-            }
-            continue;
-          } else {
-            Path keyPath = keyToPath(prefix).makeQualified(uri, workingDir);
-            if (LOG.isDebugEnabled()) {
-              LOG.debug("Adding: rd: " + keyPath);
-            }
-            result.add(getFileStatus(keyPath));
-          }
-        }
-
-        if (objects.isTruncated()) {
-          if (LOG.isDebugEnabled()) {
-            LOG.debug("listStatus: list truncated - getting next batch");
-          }
-          String nextMarker = objects.getNextMarker();
-          objects = store.listObjects(key, maxKeys, nextMarker, false);
-        } else {
-          break;
-        }
+      Path qualified = makeQualified(path);
+      RemoteIterator<LocatedFileStatus> children = innerList(qualified,
+          fileStatus, DEFAULT_FILTER,
+          new FileStatusAcceptor.AcceptAllButSelf(qualified), false);
+      while (children.hasNext()) {
+        LocatedFileStatus child = children.next();
+        result.add(child);
       }
     } else {
       if (LOG.isDebugEnabled()) {
@@ -492,11 +508,16 @@ public class AliyunOSSFileSystem extends FileSystem {
   @Override
   public RemoteIterator<LocatedFileStatus> listLocatedStatus(final Path f,
       final PathFilter filter) throws IOException {
+    return listLocatedStatus(f, filter, false);
+  }
+
+  public RemoteIterator<LocatedFileStatus> listLocatedStatus(final Path f,
+      final PathFilter filter, boolean recursive) throws IOException {
     Path qualifiedPath = f.makeQualified(uri, workingDir);
     final FileStatus status = getFileStatus(qualifiedPath);
     FileStatusAcceptor acceptor =
         new FileStatusAcceptor.AcceptAllButSelf(qualifiedPath);
-    return innerList(f, status, filter, acceptor, false);
+    return innerList(f, status, filter, acceptor, recursive);
   }
 
   private RemoteIterator<LocatedFileStatus> innerList(final Path f,
@@ -514,7 +535,8 @@ public class AliyunOSSFileSystem extends FileSystem {
       return store.singleStatusRemoteIterator(filter.accept(f) ? status : null,
           locations);
     } else {
-      return store.createLocatedFileStatusIterator(key, maxKeys, this, filter,
+      return store.createLocatedFileStatusIterator(authoritativeMeta,
+          ossGuard, key, maxKeys, this, filter,
           acceptor, recursive ? null : "/");
     }
   }
@@ -533,6 +555,7 @@ public class AliyunOSSFileSystem extends FileSystem {
         dirName += "/";
       }
       store.storeEmptyFile(dirName);
+      ossGuard.putPath(dirName, 0, true, false);
     }
     return true;
   }
@@ -651,14 +674,27 @@ public class AliyunOSSFileSystem extends FileSystem {
       }
     }
 
-    boolean succeed;
-    if (srcStatus.isDirectory()) {
-      succeed = copyDirectory(srcPath, dstPath);
-    } else {
-      succeed = copyFile(srcPath, srcStatus.getLen(), dstPath);
+    // If we have a MetadataStore, track deletions/creations.
+    Collection<Path> srcPaths = null;
+    List<PathMetadata> dstMetas = null;
+    if (hasMetadataStore()) {
+      srcPaths = new ArrayList<>();
+      dstMetas = new ArrayList<>();
     }
 
-    return srcPath.equals(dstPath) || (succeed && delete(srcPath, true));
+    boolean succeed;
+    if (srcStatus.isDirectory()) {
+      succeed = copyDirectory(srcPath, dstPath, srcPaths, dstMetas);
+    } else {
+      succeed = copyFile(srcPath, srcStatus.getLen(), dstPath,
+          srcPaths, dstMetas);
+    }
+
+    if (succeed) {
+      metadataStore.move(srcPaths, dstMetas);
+    }
+    return succeed && innerDelete(
+        OSSFileStatus.fromFileStatus(srcStatus, Tristate.FALSE), true);
   }
 
   /**
@@ -668,11 +704,12 @@ public class AliyunOSSFileSystem extends FileSystem {
    * @param srcPath source path.
    * @param srcLen source path length if it is a file.
    * @param dstPath destination path.
-   * @return true if file is successfully copied.
    */
-  private boolean copyFile(Path srcPath, long srcLen, Path dstPath) {
+  private boolean copyFile(Path srcPath, long srcLen, Path dstPath,
+      Collection<Path> srcPaths, List<PathMetadata> dstMetas) {
     String srcKey = pathToKey(srcPath);
     String dstKey = pathToKey(dstPath);
+    ossGuard.addMoveFile(srcPaths, dstMetas, srcPath, dstPath, srcLen);
     return store.copyFile(srcKey, srcLen, dstKey);
   }
 
@@ -684,7 +721,9 @@ public class AliyunOSSFileSystem extends FileSystem {
    * @param dstPath destination path.
    * @return true if directory is successfully copied.
    */
-  private boolean copyDirectory(Path srcPath, Path dstPath) throws IOException {
+  private boolean copyDirectory(Path srcPath, Path dstPath,
+      Collection<Path> srcPaths,
+      List<PathMetadata> dstMetas) throws IOException {
     String srcKey = AliyunOSSUtils
         .maybeAddTrailingSlash(pathToKey(srcPath));
     String dstKey = AliyunOSSUtils
@@ -697,39 +736,55 @@ public class AliyunOSSFileSystem extends FileSystem {
       return false;
     }
 
-    store.storeEmptyFile(dstKey);
+    mkdir(dstKey);
+    List<CopyFileEntry> copyFiles = new ArrayList<>();
+    RemoteIterator<LocatedFileStatus> children = listLocatedStatus(srcPath,
+        DEFAULT_FILTER, true);
+    while (children.hasNext()) {
+      LocatedFileStatus child = children.next();
+      if (srcPaths != null) {
+        srcPaths.add(makeQualified(child.getPath()));
+      }
+      String src = pathToKey(child.getPath());
+      if (child.isDirectory()) {
+        src = AliyunOSSUtils.maybeAddTrailingSlash(src);
+      }
+
+      String newKey = dstKey.concat(src.substring(srcKey.length()));
+      OSSFileStatus fileStatus = createFileStatus(
+          makeQualified(keyToPath(newKey)), child.isDirectory(),
+          child.getLen(), child.getModificationTime(),
+          child.getBlockSize(), username, Tristate.UNKNOWN);
+
+      if (dstMetas != null) {
+        dstMetas.add(new PathMetadata(fileStatus));
+      }
+
+      copyFiles.add(
+          new CopyFileEntry(src, newKey, child.getLen(), child.isDirectory()));
+    }
+
     AliyunOSSCopyFileContext copyFileContext = new AliyunOSSCopyFileContext();
     ExecutorService executorService = MoreExecutors.listeningDecorator(
         new SemaphoredDelegatingExecutor(boundedCopyThreadPool,
             maxConcurrentCopyTasksPerDir, true));
-    ObjectListing objects = store.listObjects(srcKey, maxKeys, null, true);
-    // Copy files from src folder to dst
     int copiesToFinish = 0;
-    while (true) {
-      for (OSSObjectSummary objectSummary : objects.getObjectSummaries()) {
-        String newKey =
-            dstKey.concat(objectSummary.getKey().substring(srcKey.length()));
-
-        //copy operation just copies metadata, oss will support shallow copy
-        executorService.execute(new AliyunOSSCopyFileTask(
-            store, objectSummary.getKey(),
-            objectSummary.getSize(), newKey, copyFileContext));
-        copiesToFinish++;
-        // No need to call lock() here.
-        // It's ok to copy one more file if the rename operation failed
-        // Reduce the call of lock() can also improve our performance
-        if (copyFileContext.isCopyFailure()) {
-          //some error occurs, break
-          break;
-        }
-      }
-      if (objects.isTruncated()) {
-        String nextMarker = objects.getNextMarker();
-        objects = store.listObjects(srcKey, maxKeys, nextMarker, true);
-      } else {
+    for (CopyFileEntry copyFile : copyFiles) {
+      //copy operation just copies metadata, oss will support shallow copy
+      executorService.execute(new AliyunOSSCopyFileTask(
+          store, copyFile.getSrcKey(),
+          copyFile.getSize(),
+          copyFile.getDstKey(), copyFileContext));
+      copiesToFinish++;
+      // No need to call lock() here.
+      // It's ok to copy one more file if the rename operation failed
+      // Reduce the call of lock() can also improve our performance
+      if (copyFileContext.isCopyFailure()) {
+        //some error occurs, break
         break;
       }
     }
+
     //wait operations in progress to finish
     copyFileContext.lock();
     try {
@@ -749,5 +804,25 @@ public class AliyunOSSFileSystem extends FileSystem {
 
   public AliyunOSSFileSystemStore getStore() {
     return store;
+  }
+
+  public OSSGuard newOSSGuard() {
+    return new OSSGuard(this, username);
+  }
+
+  public String getUsername() {
+    return username;
+  }
+
+  /**
+   * Does this Filesystem have a metadata store?
+   * @return true iff the FS has been instantiated with a metadata store
+   */
+  public boolean hasMetadataStore() {
+    return !OSSGuard.isNullMetadataStore(metadataStore);
+  }
+
+  public MetadataStore getMetadataStore() {
+    return metadataStore;
   }
 }

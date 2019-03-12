@@ -89,20 +89,32 @@ public class TestAliyunOSSBlockOutputStream {
     // fs.delete
     //   getFileStatus & delete & exists & create fake dir read 2, write 2
     ContractTestUtils.createAndVerifyFile(fs, getTestPath(), size - 1);
-    assertEquals(7, statistics.getReadOps());
+    if (((AliyunOSSFileSystem)fs).hasMetadataStore()) {
+      assertEquals(4, statistics.getReadOps());
+    } else {
+      assertEquals(7, statistics.getReadOps());
+    }
     assertEquals(size - 1, statistics.getBytesRead());
     assertEquals(3, statistics.getWriteOps());
     assertEquals(size - 1, statistics.getBytesWritten());
 
     ContractTestUtils.createAndVerifyFile(fs, getTestPath(), size);
-    assertEquals(14, statistics.getReadOps());
+    if (((AliyunOSSFileSystem)fs).hasMetadataStore()) {
+      assertEquals(8, statistics.getReadOps());
+    } else {
+      assertEquals(14, statistics.getReadOps());
+    }
     assertEquals(2 * size - 1, statistics.getBytesRead());
     assertEquals(6, statistics.getWriteOps());
     assertEquals(2 * size - 1, statistics.getBytesWritten());
 
     ContractTestUtils.createAndVerifyFile(fs, getTestPath(), size + 1);
 
-    assertEquals(22, statistics.getReadOps());
+    if (((AliyunOSSFileSystem)fs).hasMetadataStore()) {
+      assertEquals(13, statistics.getReadOps());
+    } else {
+      assertEquals(22, statistics.getReadOps());
+    }
     assertEquals(3 * size, statistics.getBytesRead());
     assertEquals(10, statistics.getWriteOps());
     assertEquals(3 * size, statistics.getBytesWritten());
@@ -115,19 +127,31 @@ public class TestAliyunOSSBlockOutputStream {
     FileSystem.Statistics statistics =
         FileSystem.getStatistics("oss", AliyunOSSFileSystem.class);
     ContractTestUtils.createAndVerifyFile(fs, getTestPath(), size - 1);
-    assertEquals(17, statistics.getReadOps());
+    if (((AliyunOSSFileSystem)fs).hasMetadataStore()) {
+      assertEquals(14, statistics.getReadOps());
+    } else {
+      assertEquals(17, statistics.getReadOps());
+    }
     assertEquals(size - 1, statistics.getBytesRead());
     assertEquals(8, statistics.getWriteOps());
     assertEquals(size - 1, statistics.getBytesWritten());
 
     ContractTestUtils.createAndVerifyFile(fs, getTestPath(), size);
-    assertEquals(34, statistics.getReadOps());
+    if (((AliyunOSSFileSystem)fs).hasMetadataStore()) {
+      assertEquals(28, statistics.getReadOps());
+    } else {
+      assertEquals(34, statistics.getReadOps());
+    }
     assertEquals(2 * size - 1, statistics.getBytesRead());
     assertEquals(16, statistics.getWriteOps());
     assertEquals(2 * size - 1, statistics.getBytesWritten());
 
     ContractTestUtils.createAndVerifyFile(fs, getTestPath(), size + 1);
-    assertEquals(52, statistics.getReadOps());
+    if (((AliyunOSSFileSystem)fs).hasMetadataStore()) {
+      assertEquals(43, statistics.getReadOps());
+    } else {
+      assertEquals(52, statistics.getReadOps());
+    }
     assertEquals(3 * size, statistics.getBytesRead());
     assertEquals(25, statistics.getWriteOps());
     assertEquals(3 * size, statistics.getBytesWritten());
@@ -140,7 +164,11 @@ public class TestAliyunOSSBlockOutputStream {
     ContractTestUtils.createAndVerifyFile(fs, getTestPath(), size);
     FileSystem.Statistics statistics =
         FileSystem.getStatistics("oss", AliyunOSSFileSystem.class);
-    assertEquals(105, statistics.getReadOps());
+    if (((AliyunOSSFileSystem)fs).hasMetadataStore()) {
+      assertEquals(102, statistics.getReadOps());
+    } else {
+      assertEquals(105, statistics.getReadOps());
+    }
     assertEquals(size, statistics.getBytesRead());
     assertEquals(52, statistics.getWriteOps());
     assertEquals(size, statistics.getBytesWritten());

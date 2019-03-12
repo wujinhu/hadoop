@@ -1315,6 +1315,27 @@
      </dependency>
 
      <dependency>
+       <groupId>com.aliyun.openservices</groupId>
+       <artifactId>tablestore</artifactId>
+       <version>4.10.2</version>
+       <classifier>jar-with-dependencies</classifier>
+       <exclusions>
+         <exclusion>
+           <groupId>com.google.protobuf</groupId>
+           <artifactId>protobuf-java</artifactId>
+         </exclusion>
+         <exclusion>
+           <groupId>org.apache.httpcomponents</groupId>
+           <artifactId>httpcore</artifactId>
+         </exclusion>
+         <exclusion>
+           <groupId>org.apache.httpcomponents</groupId>
+           <artifactId>httpclient</artifactId>
+         </exclusion>
+       </exclusions>
+     </dependency>
+
+     <dependency>
        <groupId>org.apache.curator</groupId>
        <artifactId>curator-recipes</artifactId>
        <version>${curator.version}</version>

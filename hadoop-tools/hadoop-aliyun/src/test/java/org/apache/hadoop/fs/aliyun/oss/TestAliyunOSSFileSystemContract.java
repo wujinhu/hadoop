@@ -28,6 +28,8 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.junit.Before;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -45,6 +47,8 @@ import static org.junit.Assume.assumeTrue;
  */
 public class TestAliyunOSSFileSystemContract
     extends FileSystemContractBaseTest {
+  public static final Logger LOG = LoggerFactory.getLogger(
+      FileSystemContractBaseTest.class);
   public static final String TEST_FS_OSS_NAME = "test.fs.oss.name";
   private static Path testRootPath =
       new Path(AliyunOSSTestUtils.generateUniqueTestPath());
@@ -394,7 +398,10 @@ public class TestAliyunOSSFileSystemContract
     }
 
     if (changing) {
-      fs.delete(this.path("a/b"), true);
+      // We change this because we enable metastore and
+      // it will cost some time to delete one directory
+      fs.delete(this.path("a/b/test.file.97"), false);
+      fs.delete(this.path("a/b/test.file.98"), false);
     }
 
     thread.join();
@@ -428,6 +435,7 @@ public class TestAliyunOSSFileSystemContract
         running = true;
         result = fs.rename(srcPath, dstPath);
       } catch (Exception e) {
+        LOG.warn("{}", e);
       }
     }
   }
