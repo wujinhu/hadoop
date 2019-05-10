@@ -124,7 +124,7 @@ public class AliyunOSSBlockOutputStream extends OutputStream {
             new ArrayList<>(partETags));
       }
     } finally {
-      removePartFiles();
+      removeTemporaryFiles();
       closed = true;
     }
   }
@@ -146,6 +146,14 @@ public class AliyunOSSBlockOutputStream extends OutputStream {
     if (blockWritten >= blockSize) {
       uploadCurrentPart();
       blockWritten = 0L;
+    }
+  }
+
+  private void removeTemporaryFiles() {
+    for (File blockFile : blockFiles.values()) {
+      if (blockFile != null && blockFile.exists() && !blockFile.delete()) {
+        LOG.warn("Failed to delete temporary file {}", blockFile);
+      }
     }
   }
 
