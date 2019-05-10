@@ -185,8 +185,8 @@ public class TestAliyunOSSBlockOutputStream {
 
   @Test
   /**
-   * This test is used to verify HADOOP-12345.
-   * Test small file uploading so that oss fs will uploads file directly
+   * This test is used to verify HADOOP-16306.
+   * Test small file uploading so that oss fs will upload file directly
    * instead of multi part upload.
    */
   public void testSmallUpload() throws IOException {
