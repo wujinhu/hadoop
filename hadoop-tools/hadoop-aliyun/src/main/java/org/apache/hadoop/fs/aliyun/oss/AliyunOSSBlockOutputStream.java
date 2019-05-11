@@ -150,9 +150,9 @@ public class AliyunOSSBlockOutputStream extends OutputStream {
   }
 
   private void removeTemporaryFiles() {
-    for (File blockFile : blockFiles.values()) {
-      if (blockFile != null && blockFile.exists() && !blockFile.delete()) {
-        LOG.warn("Failed to delete temporary file {}", blockFile);
+    for (File file : blockFiles.values()) {
+      if (file != null && file.exists() && !file.delete()) {
+        LOG.warn("Failed to delete temporary file {}", file);
       }
     }
   }
