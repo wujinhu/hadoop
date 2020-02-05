@@ -278,9 +278,11 @@ public class AliyunOSSFileSystem extends FileSystem {
             CollectionUtils.isNotEmpty(listing.getCommonPrefixes())) {
           return new OSSFileStatus(0, true, 1, 0, 0, qualifiedPath, username);
         } else if (listing.isTruncated()) {
-          listing = store.listObjects(key, 1000, listing.getNextMarker(), false);
+          listing = store.listObjects(key, 1000, listing.getNextMarker(),
+              false);
         } else {
-          throw new FileNotFoundException(path + ": No such file or directory!");
+          throw new FileNotFoundException(
+              path + ": No such file or directory!");
         }
       } while (true);
     } else if (objectRepresentsDirectory(key, meta.getContentLength())) {
