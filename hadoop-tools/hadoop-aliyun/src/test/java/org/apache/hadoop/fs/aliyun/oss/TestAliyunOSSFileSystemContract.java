@@ -23,7 +23,9 @@ import org.apache.hadoop.fs.FileAlreadyExistsException;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.FileSystemContractBaseTest;
+import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.RemoteIterator;
 
 import org.apache.hadoop.security.UserGroupInformation;
 import org.junit.Before;
@@ -31,7 +33,14 @@ import org.junit.Test;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -49,12 +58,14 @@ public class TestAliyunOSSFileSystemContract
   public static final String TEST_FS_OSS_NAME = "test.fs.oss.name";
   private static Path testRootPath =
       new Path(AliyunOSSTestUtils.generateUniqueTestPath());
+  private AliyunOSSFileSystemStore store;
 
   @Before
   public void setUp() throws Exception {
     Configuration conf = new Configuration();
     fs = AliyunOSSTestUtils.createTestFileSystem(conf);
     assumeNotNull(fs);
+    store = ((AliyunOSSFileSystem)fs).getStore();
   }
 
   @Override
@@ -456,6 +467,60 @@ public class TestAliyunOSSFileSystemContract
   }
 
   protected int getGlobalTimeout() {
-    return 120 * 1000;
+    return 300 * 1000;
+  }
+
+  @Test
+  public void testLargeDirListingInVersioningBucket() throws Exception {
+    assumeTrue(store.isVersioningBucket());
+    List<Future> futures = new ArrayList<>();
+    ExecutorService es = new ThreadPoolExecutor(30, 30, 0L,
+        TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>());
+    int deleteMarkers = 10000, numFiles = 1000;
+    String key = "a/b/test.file";
+    for (int i = 0; i < deleteMarkers; ++i) {
+      Path path = this.path(key + ".0");
+      futures.add(es.submit(() -> {
+        try {
+          fs.delete(path, true);
+        } catch (Exception e) {
+        }
+      }));
+    }
+
+    for (int i = 0; i < deleteMarkers; ++i) {
+      while (!futures.get(i).isDone()) {
+        Thread.sleep(1);
+      }
+    }
+
+    futures = new ArrayList<>();
+    for (int i = 0; i < numFiles; ++i) {
+      Path path = this.path(key + "." + i);
+      futures.add(es.submit(() -> {
+        try {
+          fs.createNewFile(path);
+        } catch (Exception e) {
+        }
+      }));
+    }
+    for (int i = 0; i < numFiles; ++i) {
+      while (!futures.get(i).isDone()) {
+        Thread.sleep(1);
+      }
+    }
+    RemoteIterator<LocatedFileStatus> itr = fs.listFiles(this.path("a"), true);
+    for (int i = 0; i < numFiles; ++i) {
+      assertTrue(itr.hasNext());
+      LocatedFileStatus lfs = itr.next();
+      assertTrue(lfs.getPath().compareTo(this.path(key)) > 0);
+      assertEquals(0L, lfs.getLen());
+      if (i == numFiles - 1) {
+        assertFalse(itr.hasNext());
+      }
+    }
+
+    FileStatus[] stats = fs.listStatus(this.path("a/b"));
+    assertEquals(numFiles, stats.length);
   }
 }
